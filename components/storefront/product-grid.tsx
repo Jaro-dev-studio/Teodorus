@@ -21,10 +21,11 @@ export function ProductGrid({
   columns = 4,
   showFeatured = false,
 }: ProductGridProps) {
+  // Mobile-first grid columns
   const gridCols = {
-    2: "grid-cols-1 sm:grid-cols-2",
-    3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
-    4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+    2: "grid-cols-2",
+    3: "grid-cols-2 lg:grid-cols-3",
+    4: "grid-cols-2 md:grid-cols-3 xl:grid-cols-4",
   };
 
   if (showFeatured && products.length >= 2) {
@@ -32,21 +33,21 @@ export function ProductGrid({
     const rest = products.slice(2);
 
     return (
-      <section className="py-20 sm:py-32">
+      <section className="py-12 sm:py-20 md:py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section header */}
           {(title || subtitle) && (
-            <div className="text-center mb-16">
+            <div className="text-center mb-10 sm:mb-12 md:mb-16">
               {title && (
                 <RevealText>
-                  <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-foreground mb-4">
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-bold text-foreground mb-3 sm:mb-4">
                     {title}
                   </h2>
                 </RevealText>
               )}
               {subtitle && (
                 <RevealText delay={0.1}>
-                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                  <p className="text-sm sm:text-base md:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
                     {subtitle}
                   </p>
                 </RevealText>
@@ -55,7 +56,7 @@ export function ProductGrid({
           )}
 
           {/* Featured products */}
-          <div className="space-y-24 mb-24">
+          <div className="space-y-12 sm:space-y-16 md:space-y-24 mb-12 sm:mb-16 md:mb-24">
             {featured.map((product, index) => (
               <FeaturedProductCard
                 key={product.id}
@@ -67,7 +68,7 @@ export function ProductGrid({
 
           {/* Rest of products */}
           {rest.length > 0 && (
-            <div className={`grid ${gridCols[columns]} gap-6 md:gap-8`}>
+            <div className={`grid ${gridCols[columns]} gap-4 sm:gap-5 md:gap-6 lg:gap-8`}>
               {rest.map((product, index) => (
                 <ProductCard key={product.id} product={product} index={index} />
               ))}
@@ -79,21 +80,21 @@ export function ProductGrid({
   }
 
   return (
-    <section className="py-20 sm:py-32">
+    <section className="py-12 sm:py-20 md:py-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
         {(title || subtitle) && (
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 sm:mb-12 md:mb-16">
             {title && (
               <RevealText>
-                <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-foreground mb-4">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-bold text-foreground mb-3 sm:mb-4">
                   {title}
                 </h2>
               </RevealText>
             )}
             {subtitle && (
               <RevealText delay={0.1}>
-                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                <p className="text-sm sm:text-base md:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
                   {subtitle}
                 </p>
               </RevealText>
@@ -101,8 +102,8 @@ export function ProductGrid({
           </div>
         )}
 
-        {/* Product grid */}
-        <div className={`grid ${gridCols[columns]} gap-6 md:gap-8`}>
+        {/* Product grid - Mobile first 2 columns */}
+        <div className={`grid ${gridCols[columns]} gap-4 sm:gap-5 md:gap-6 lg:gap-8`}>
           {products.map((product, index) => (
             <ProductCard key={product.id} product={product} index={index} />
           ))}
@@ -113,7 +114,7 @@ export function ProductGrid({
 }
 
 /**
- * Horizontal scrolling product showcase
+ * Horizontal scrolling product showcase - Touch optimized
  */
 interface ProductShowcaseProps {
   products: Product[];
@@ -121,37 +122,41 @@ interface ProductShowcaseProps {
 }
 
 export function ProductShowcase({ products, title }: ProductShowcaseProps) {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
   return (
-    <section className="py-20 sm:py-32 overflow-hidden">
+    <section className="py-12 sm:py-20 md:py-32 overflow-hidden">
       {title && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6 sm:mb-8 md:mb-12">
           <RevealText>
-            <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-foreground">
               {title}
             </h2>
           </RevealText>
         </div>
       )}
 
-      <motion.div
-        className="flex gap-6 pl-4 sm:pl-6 lg:pl-8"
-        drag="x"
-        dragConstraints={{ left: -((products.length - 1) * 340), right: 0 }}
-        style={{ cursor: "grab" }}
+      {/* Horizontal scroll container - Touch optimized */}
+      <div
+        ref={scrollRef}
+        className="flex gap-4 sm:gap-5 md:gap-6 px-4 sm:px-6 lg:px-8 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory pb-4"
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {products.map((product, index) => (
           <motion.div
             key={product.id}
-            className="flex-shrink-0 w-[280px] sm:w-[320px]"
-            initial={{ opacity: 0, x: 40 }}
+            className="flex-shrink-0 w-[70vw] sm:w-[45vw] md:w-[320px] snap-start"
+            initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: index * 0.1, duration: 0.6 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ delay: Math.min(index * 0.08, 0.3), duration: 0.5 }}
           >
             <ProductCard product={product} index={0} />
           </motion.div>
         ))}
-      </motion.div>
+        {/* Spacer for last item */}
+        <div className="flex-shrink-0 w-4 sm:w-6 lg:w-8" />
+      </div>
     </section>
   );
 }

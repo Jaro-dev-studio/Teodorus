@@ -20,6 +20,18 @@ export function Navigation({ cartItemCount = 0, onCartClick }: NavigationProps) 
   const [isScrolled, setIsScrolled] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
+  // Lock body scroll when mobile menu is open
+  React.useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
+
   React.useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -41,12 +53,17 @@ export function Navigation({ cartItemCount = 0, onCartClick }: NavigationProps) 
             : "bg-transparent"
         )}
       >
-        <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 sm:h-20 items-center justify-between">
+        {/* Safe area padding for notched devices */}
+        <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 safe-area-inset-x">
+          <div className="flex h-14 sm:h-16 md:h-20 items-center justify-between">
             {/* Logo */}
-            <Link href="/" className="relative group">
+            <Link 
+              href="/" 
+              className="relative group min-h-[44px] flex items-center"
+              aria-label="TriggerTs Home"
+            >
               <motion.span
-                className="text-xl sm:text-2xl font-bold tracking-tight"
+                className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight"
                 whileHover={{ scale: 1.02 }}
                 transition={{ duration: 0.2 }}
               >
@@ -54,7 +71,7 @@ export function Navigation({ cartItemCount = 0, onCartClick }: NavigationProps) 
                 <span className="text-gradient">Ts</span>
               </motion.span>
               <motion.div
-                className="absolute -bottom-1 left-0 h-[2px] bg-primary"
+                className="absolute -bottom-1 left-0 h-[2px] bg-primary hidden sm:block"
                 initial={{ width: 0 }}
                 whileHover={{ width: "100%" }}
                 transition={{ duration: 0.3 }}
@@ -67,7 +84,7 @@ export function Navigation({ cartItemCount = 0, onCartClick }: NavigationProps) 
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="relative group text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-300"
+                  className="relative group text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-300 py-2"
                 >
                   <span>{link.label}</span>
                   <motion.span
@@ -81,12 +98,11 @@ export function Navigation({ cartItemCount = 0, onCartClick }: NavigationProps) 
             </div>
 
             {/* Right side actions */}
-            <div className="flex items-center gap-2 sm:gap-4">
-              {/* Search button */}
+            <div className="flex items-center gap-1 sm:gap-2">
+              {/* Search button - visible on all sizes */}
               <motion.button
-                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                className="h-11 w-11 sm:h-10 sm:w-10 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground active:bg-secondary sm:hover:bg-secondary transition-colors"
                 aria-label="Search"
               >
                 <svg
@@ -104,12 +120,11 @@ export function Navigation({ cartItemCount = 0, onCartClick }: NavigationProps) 
                 </svg>
               </motion.button>
 
-              {/* Cart button */}
+              {/* Cart button - min 44px touch target */}
               <motion.button
-                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={onCartClick}
-                className="relative h-10 w-10 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                className="relative h-11 w-11 sm:h-10 sm:w-10 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground active:bg-secondary sm:hover:bg-secondary transition-colors"
                 aria-label={`Cart with ${cartItemCount} items`}
               >
                 <svg
@@ -139,13 +154,13 @@ export function Navigation({ cartItemCount = 0, onCartClick }: NavigationProps) 
                 </AnimatePresence>
               </motion.button>
 
-              {/* Mobile menu button */}
+              {/* Mobile menu button - min 44px touch target */}
               <motion.button
-                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden h-10 w-10 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                className="md:hidden h-11 w-11 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground active:bg-secondary transition-colors"
                 aria-label="Toggle menu"
+                aria-expanded={isMobileMenuOpen}
               >
                 <div className="relative w-5 h-4 flex flex-col justify-between">
                   <motion.span
@@ -176,7 +191,7 @@ export function Navigation({ cartItemCount = 0, onCartClick }: NavigationProps) 
         </nav>
       </motion.header>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu - Full screen */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
@@ -191,30 +206,60 @@ export function Navigation({ cartItemCount = 0, onCartClick }: NavigationProps) 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-background/95 backdrop-blur-xl"
+              className="absolute inset-0 bg-background"
               onClick={() => setIsMobileMenuOpen(false)}
             />
 
-            {/* Menu content */}
+            {/* Menu content - Full width on mobile */}
             <motion.nav
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-background border-l border-border p-6 pt-24"
+              className="absolute inset-0 bg-background flex flex-col px-6 pt-20 pb-8 safe-area-inset"
             >
-              <div className="flex flex-col gap-6">
+              {/* Search bar on mobile */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="mb-8"
+              >
+                <div className="relative">
+                  <svg
+                    className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                    />
+                  </svg>
+                  <input
+                    type="search"
+                    placeholder="Search products..."
+                    className="w-full h-12 pl-12 pr-4 bg-secondary rounded-full text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </motion.div>
+
+              {/* Navigation links - Large touch targets */}
+              <div className="flex-1 flex flex-col gap-2">
                 {navLinks.map((link, index) => (
                   <motion.div
                     key={link.href}
-                    initial={{ opacity: 0, x: 20 }}
+                    initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 + 0.1 }}
+                    transition={{ delay: index * 0.1 + 0.15 }}
                   >
                     <Link
                       href={link.href}
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className="text-3xl font-medium text-foreground hover:text-primary transition-colors"
+                      className="flex items-center h-14 text-2xl font-medium text-foreground hover:text-primary active:text-primary transition-colors"
                     >
                       {link.label}
                     </Link>
@@ -222,17 +267,17 @@ export function Navigation({ cartItemCount = 0, onCartClick }: NavigationProps) 
                 ))}
               </div>
 
-              {/* Mobile CTA */}
+              {/* Mobile CTA - Sticky at bottom */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="mt-12"
+                className="pt-6 border-t border-border"
               >
                 <Link
                   href="/shop"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-medium rounded-full hover:bg-primary-hover transition-colors"
+                  className="flex items-center justify-center gap-2 w-full h-14 bg-primary text-primary-foreground font-medium rounded-full hover:bg-primary-hover active:scale-[0.98] transition-all"
                 >
                   Browse Collection
                   <svg
