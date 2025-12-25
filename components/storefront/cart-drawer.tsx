@@ -4,9 +4,12 @@ import * as React from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { shopifyFetch, isShopifyConfigured } from "@/lib/shopify/client";
+import { CREATE_CART } from "@/lib/shopify/queries";
 
 interface CartItem {
   id: string;
+  variantId?: string;
   title: string;
   price: number;
   size: string;
@@ -29,7 +32,74 @@ export function CartDrawer({
   onUpdateQuantity,
   onRemoveItem,
 }: CartDrawerProps) {
+  const [isCheckingOut, setIsCheckingOut] = React.useState(false);
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const handleCheckout = async () => {
+    if (items.length === 0 || isCheckingOut) return;
+    
+    setIsCheckingOut(true);
+    
+    try {
+      console.log("[Checkout] Starting checkout process...");
+      console.log("[Checkout] Cart items:", JSON.stringify(items, null, 2));
+      
+      if (!isShopifyConfigured()) {
+        console.error("[Checkout] Shopify is not configured");
+        alert("Checkout is not available at the moment. Please try again later.");
+        setIsCheckingOut(false);
+        return;
+      }
+
+      // Build cart lines from items - need variant IDs for Shopify
+      const lines = items.map((item) => ({
+        merchandiseId: item.variantId || item.id,
+        quantity: item.quantity,
+      }));
+
+      console.log("[Checkout] Cart lines to send:", JSON.stringify(lines, null, 2));
+      console.log("[Checkout] CREATE_CART query:", CREATE_CART);
+
+      const data = await shopifyFetch<{
+        cartCreate: {
+          cart: {
+            id: string;
+            checkoutUrl: string;
+          } | null;
+          userErrors: Array<{ field: string[]; message: string }>;
+        };
+      }>({
+        query: CREATE_CART,
+        variables: { input: { lines } },
+        cache: "no-store",
+      });
+
+      console.log("[Checkout] Shopify response:", JSON.stringify(data, null, 2));
+
+      if (data.cartCreate.userErrors.length > 0) {
+        console.error("[Checkout] Cart creation errors:", data.cartCreate.userErrors);
+        alert(`Failed to create checkout: ${data.cartCreate.userErrors.map(e => e.message).join(", ")}`);
+        setIsCheckingOut(false);
+        return;
+      }
+
+      if (data.cartCreate.cart?.checkoutUrl) {
+        console.log("[Checkout] Redirecting to:", data.cartCreate.cart.checkoutUrl);
+        // Redirect to Shopify checkout
+        window.location.href = data.cartCreate.cart.checkoutUrl;
+      } else {
+        console.error("[Checkout] No checkout URL in response");
+        alert("Failed to get checkout URL. Please try again.");
+        setIsCheckingOut(false);
+      }
+    } catch (error) {
+      console.error("[Checkout] Error:", error);
+      console.error("[Checkout] Error details:", error instanceof Error ? error.message : String(error));
+      console.error("[Checkout] Error stack:", error instanceof Error ? error.stack : "No stack");
+      alert(`An error occurred during checkout: ${error instanceof Error ? error.message : "Unknown error"}`);
+      setIsCheckingOut(false);
+    }
+  };
 
   // Lock body scroll when open
   React.useEffect(() => {
@@ -136,10 +206,18 @@ export function CartDrawer({
                       className="flex gap-4"
                     >
                       {/* Product image */}
-                      <div className="w-24 h-28 bg-secondary flex-shrink-0 overflow-hidden">
-                        <div className="w-full h-full flex items-center justify-center text-foreground/5 font-display text-xl">
-                          TT
-                        </div>
+                      <div className="w-24 h-28 bg-secondary flex-shrink-0 overflow-hidden rounded-lg">
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-foreground/5 font-display text-xl">
+                            {item.title.charAt(0)}
+                          </div>
+                        )}
                       </div>
 
                       {/* Product info */}
@@ -233,9 +311,35 @@ export function CartDrawer({
                   </p>
                 </div>
                 <div className="space-y-3 pt-1">
-                  <Button className="w-full h-12 rounded-full">
-                    Checkout
-                  </Button>
+                  <button 
+                    onClick={handleCheckout}
+                    disabled={isCheckingOut}
+                    className="w-full h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50 font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    {isCheckingOut && (
+                      <svg
+                        className="h-4 w-4 animate-spin"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                    )}
+                    {isCheckingOut ? "Processing..." : "Checkout"}
+                  </button>
                   <Button
                     variant="ghost"
                     onClick={onClose}
@@ -258,7 +362,7 @@ export function CartDrawer({
  */
 interface CartContextType {
   items: CartItem[];
-  addItem: (item: Omit<CartItem, "quantity">) => void;
+  addItem: (item: Omit<CartItem, "quantity"> & { variantId?: string }) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -273,7 +377,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = React.useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = React.useState(false);
 
-  const addItem = (newItem: Omit<CartItem, "quantity">) => {
+  const addItem = (newItem: Omit<CartItem, "quantity"> & { variantId?: string }) => {
     setItems((prev) => {
       const existing = prev.find(
         (item) => item.id === newItem.id && item.size === newItem.size

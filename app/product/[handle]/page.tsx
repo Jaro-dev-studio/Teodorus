@@ -72,6 +72,7 @@ export default function ProductPage() {
     
     addItem({
       id: `${product.id}-${selectedSize}`,
+      variantId: variant?.id || product.variants[0]?.id,
       title: product.title,
       price: variant?.price || product.price,
       size: selectedSize,
