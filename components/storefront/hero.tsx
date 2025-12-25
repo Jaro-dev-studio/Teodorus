@@ -37,37 +37,26 @@ export function Hero() {
 
       {/* Main content */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-24 sm:py-32 text-center">
-        {/* Pre-headline */}
-        <RevealText delay={0.2}>
-          <motion.p 
-            className="text-[10px] sm:text-xs md:text-sm uppercase tracking-[0.2em] sm:tracking-[0.3em] text-muted-foreground mb-4 sm:mb-6"
-          >
-            Luxury Meets Internet Money
-          </motion.p>
-        </RevealText>
-
         {/* Main headline - Mobile-first sizing */}
         <AnimatedHeadline
           lines={[
             "Wear Your",
             "Opinion."
           ]}
-          delay={0.4}
+          delay={0.2}
           className="mb-6 sm:mb-8"
           lineClassName="text-[2.75rem] leading-[1] sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-display font-bold tracking-tight"
         />
 
         {/* Tagline - Better mobile line height */}
-        <RevealText delay={1}>
-          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground max-w-xs sm:max-w-lg md:max-w-2xl mx-auto mb-8 sm:mb-12 leading-relaxed px-2">
-            Ironic. Intelligent. Unapologetic.
-            <br className="hidden xs:block" />
-            <span className="text-foreground"> T-shirts for people who get it.</span>
+        <RevealText delay={0.8}>
+          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground max-w-xs sm:max-w-lg md:max-w-xl mx-auto mb-8 sm:mb-12 leading-relaxed px-2">
+            Premium t-shirts for people who get it.
           </p>
         </RevealText>
 
         {/* CTA buttons - Stack on mobile, row on larger */}
-        <RevealText delay={1.2}>
+        <RevealText delay={1}>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 px-4 sm:px-0">
             <motion.div 
               whileTap={{ scale: 0.98 }}
@@ -77,7 +66,7 @@ export function Hero() {
                 href="/shop"
                 className="group flex items-center justify-center gap-3 w-full sm:w-auto px-6 sm:px-8 py-4 bg-primary text-primary-foreground font-medium rounded-full hover:bg-primary-hover active:bg-primary-hover transition-colors"
               >
-                <span>Browse Collection</span>
+                <span>Shop Now</span>
                 <svg
                   className="w-4 h-4 transition-transform group-hover:translate-x-1"
                   fill="none"
@@ -91,18 +80,6 @@ export function Hero() {
                     d="M17 8l4 4m0 0l-4 4m4-4H3"
                   />
                 </svg>
-              </Link>
-            </motion.div>
-
-            <motion.div 
-              whileTap={{ scale: 0.98 }}
-              className="w-full sm:w-auto"
-            >
-              <Link
-                href="/about"
-                className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 sm:px-8 py-4 text-foreground font-medium rounded-full border border-border hover:bg-secondary active:bg-secondary transition-colors"
-              >
-                <span>Our Story</span>
               </Link>
             </motion.div>
           </div>
@@ -120,7 +97,6 @@ export function Hero() {
             transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
             className="flex flex-col items-center gap-2 text-muted-foreground"
           >
-            <span className="text-[10px] uppercase tracking-widest">Scroll</span>
             <svg
               className="w-4 h-4"
               fill="none"
@@ -171,8 +147,7 @@ export function HeroWithProduct() {
 
             <RevealText delay={0.9}>
               <p className="text-base sm:text-lg text-muted-foreground mt-4 sm:mt-6 mb-6 sm:mb-8 max-w-md mx-auto lg:mx-0 leading-relaxed">
-                Premium t-shirts for the discerning internet native. 
-                Because taste and trolling aren&apos;t mutually exclusive.
+                Premium t-shirts for people who get it.
               </p>
             </RevealText>
 
@@ -207,9 +182,6 @@ export function HeroWithProduct() {
                 <div className="text-center p-8">
                   <p className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold text-foreground/10 mb-2">
                     TriggerTs
-                  </p>
-                  <p className="text-muted-foreground text-xs sm:text-sm">
-                    Featured Product
                   </p>
                 </div>
               </div>

@@ -2,9 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import type { Product } from "@/lib/products";
+import { useWishlist } from "@/lib/context/wishlist-context";
+import type { Product } from "@/lib/shopify/types";
 
 interface ProductCardProps {
   product: Product;
@@ -12,15 +14,31 @@ interface ProductCardProps {
   priority?: boolean;
 }
 
-export function ProductCard({ product, index = 0 }: ProductCardProps) {
+export function ProductCard({ product, index = 0, priority = false }: ProductCardProps) {
   const [isHovered, setIsHovered] = React.useState(false);
   const [isTouched, setIsTouched] = React.useState(false);
+  const { isInWishlist, toggleItem } = useWishlist();
+  
+  const isWishlisted = isInWishlist(product.id);
 
   // Handle touch interactions for mobile
   const handleTouchStart = () => setIsTouched(true);
   const handleTouchEnd = () => setTimeout(() => setIsTouched(false), 300);
 
   const isActive = isHovered || isTouched;
+
+  const handleWishlistClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleItem(product.id);
+  };
+
+  // Get tagline from description (first sentence or first 60 chars)
+  const tagline = React.useMemo(() => {
+    if (!product.description) return "";
+    const firstSentence = product.description.split(".")[0];
+    return firstSentence.length > 60 ? firstSentence.slice(0, 60) + "..." : firstSentence;
+  }, [product.description]);
 
   return (
     <motion.article
@@ -29,7 +47,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
       viewport={{ once: true, margin: "-30px" }}
       transition={{
         duration: 0.5,
-        delay: Math.min(index * 0.08, 0.4), // Cap delay for better mobile UX
+        delay: Math.min(index * 0.08, 0.4),
         ease: [0.22, 1, 0.36, 1],
       }}
       onMouseEnter={() => setIsHovered(true)}
@@ -38,26 +56,45 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
       onTouchEnd={handleTouchEnd}
       className="group relative"
     >
-      <Link 
-        href={`/product/${product.handle}`} 
+      <Link
+        href={`/product/${product.handle}`}
         className="block touch-manipulation"
       >
-        {/* Image container - Optimized aspect ratio for mobile */}
+        {/* Image container */}
         <div className="relative aspect-[3/4] overflow-hidden rounded-xl sm:rounded-lg bg-secondary mb-3 sm:mb-4">
-          {/* Product image placeholder */}
-          <motion.div
-            className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-secondary to-card"
-            animate={{
-              scale: isActive ? 1.03 : 1,
-            }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="text-center p-4 sm:p-6">
-              <p className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-foreground/[0.03] sm:text-foreground/5">
-                {product.title.split(" ")[0]}
-              </p>
-            </div>
-          </motion.div>
+          {/* Product image */}
+          {product.image ? (
+            <motion.div
+              className="absolute inset-0"
+              animate={{
+                scale: isActive ? 1.03 : 1,
+              }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <img
+                src={product.image}
+                alt={product.title}
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                priority={priority}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-secondary to-card"
+              animate={{
+                scale: isActive ? 1.03 : 1,
+              }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="text-center p-4 sm:p-6">
+                <p className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-foreground/[0.03] sm:text-foreground/5">
+                  {product.title.split(" ")[0]}
+                </p>
+              </div>
+            </motion.div>
+          )}
 
           {/* Gradient overlay on hover/touch */}
           <motion.div
@@ -68,51 +105,51 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
           />
 
           {/* Tagline reveal on hover/touch */}
-          <motion.div
-            className="absolute bottom-0 left-0 right-0 p-3 sm:p-4"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 10 }}
-            transition={{ duration: 0.25 }}
-          >
-            <p className="text-xs sm:text-sm text-foreground/90 italic line-clamp-2">
-              &ldquo;{product.tagline}&rdquo;
-            </p>
-          </motion.div>
+          {tagline && (
+            <motion.div
+              className="absolute bottom-0 left-0 right-0 p-3 sm:p-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 10 }}
+              transition={{ duration: 0.25 }}
+            >
+              <p className="text-xs sm:text-sm text-foreground/90 italic line-clamp-2">
+                &ldquo;{tagline}&rdquo;
+              </p>
+            </motion.div>
+          )}
 
-          {/* Quick add button - Larger touch target on mobile */}
+          {/* Wishlist button */}
           <motion.button
             className={cn(
               "absolute top-3 right-3 sm:top-4 sm:right-4 h-11 w-11 sm:h-10 sm:w-10",
               "flex items-center justify-center rounded-full",
-              "bg-foreground text-background",
+              "bg-foreground/80 backdrop-blur-sm",
               "opacity-0 group-hover:opacity-100 transition-opacity",
-              "sm:opacity-0", // Only show on hover for desktop
-              isActive && "opacity-100" // Show on touch for mobile
+              isActive && "opacity-100"
             )}
             whileTap={{ scale: 0.9 }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              // Add to cart logic
-            }}
-            aria-label={`Quick add ${product.title}`}
+            onClick={handleWishlistClick}
+            aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
           >
             <svg
-              className="w-5 h-5"
-              fill="none"
+              className={cn(
+                "w-5 h-5 transition-colors",
+                isWishlisted ? "text-primary fill-primary" : "text-background"
+              )}
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={1.5}
+              fill={isWishlisted ? "currentColor" : "none"}
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M12 4.5v15m7.5-7.5h-15"
+                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
               />
             </svg>
           </motion.button>
 
-          {/* Sale / New badge */}
+          {/* Sale badge */}
           {product.compareAtPrice && (
             <div className="absolute top-3 left-3 sm:top-4 sm:left-4">
               <span className="inline-block px-2.5 py-1 sm:px-3 bg-primary text-primary-foreground text-[10px] sm:text-xs font-bold rounded-full">
@@ -120,10 +157,12 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
               </span>
             </div>
           )}
-          {product.tags.includes("bestseller") && !product.compareAtPrice && (
-            <div className="absolute top-3 left-3 sm:top-4 sm:left-4">
-              <span className="inline-block px-2.5 py-1 sm:px-3 bg-accent text-accent-foreground text-[10px] sm:text-xs font-bold rounded-full">
-                Bestseller
+
+          {/* Out of stock badge */}
+          {!product.availableForSale && (
+            <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
+              <span className="px-4 py-2 bg-background text-foreground text-sm font-medium rounded-full">
+                Sold Out
               </span>
             </div>
           )}
@@ -139,11 +178,11 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
           {/* Price */}
           <div className="flex items-center gap-2">
             <span className="text-sm sm:text-base text-foreground font-medium">
-              ${product.price}
+              ${product.price.toFixed(2)}
             </span>
             {product.compareAtPrice && (
               <span className="text-muted-foreground line-through text-xs sm:text-sm">
-                ${product.compareAtPrice}
+                ${product.compareAtPrice.toFixed(2)}
               </span>
             )}
           </div>
@@ -162,6 +201,15 @@ interface FeaturedProductCardProps {
 }
 
 export function FeaturedProductCard({ product, reverse = false }: FeaturedProductCardProps) {
+  const { isInWishlist, toggleItem } = useWishlist();
+  const isWishlisted = isInWishlist(product.id);
+
+  const tagline = React.useMemo(() => {
+    if (!product.description) return "";
+    const firstSentence = product.description.split(".")[0];
+    return firstSentence.length > 80 ? firstSentence.slice(0, 80) + "..." : firstSentence;
+  }, [product.description]);
+
   return (
     <motion.article
       initial={{ opacity: 0, y: 40 }}
@@ -183,13 +231,50 @@ export function FeaturedProductCard({ product, reverse = false }: FeaturedProduc
           whileTap={{ scale: 0.98 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-secondary to-card">
-            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-bold text-foreground/[0.03] sm:text-foreground/5">
-              {product.title.split(" ")[0]}
-            </p>
-          </div>
+          {product.image ? (
+            <img
+              src={product.image}
+              alt={product.title}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 50vw"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-secondary to-card">
+              <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-bold text-foreground/[0.03] sm:text-foreground/5">
+                {product.title.split(" ")[0]}
+              </p>
+            </div>
+          )}
 
           <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-300" />
+          
+          {/* Wishlist button */}
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              toggleItem(product.id);
+            }}
+            className="absolute top-4 right-4 h-12 w-12 flex items-center justify-center rounded-full bg-foreground/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+            aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          >
+            <svg
+              className={cn(
+                "w-6 h-6 transition-colors",
+                isWishlisted ? "text-primary fill-primary" : "text-background"
+              )}
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              fill={isWishlisted ? "currentColor" : "none"}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+              />
+            </svg>
+          </button>
         </motion.div>
       </Link>
 
@@ -208,11 +293,13 @@ export function FeaturedProductCard({ product, reverse = false }: FeaturedProduc
           {product.title}
         </h3>
 
-        <p className="text-lg sm:text-xl text-muted-foreground italic">
-          &ldquo;{product.tagline}&rdquo;
-        </p>
+        {tagline && (
+          <p className="text-lg sm:text-xl text-muted-foreground italic">
+            &ldquo;{tagline}&rdquo;
+          </p>
+        )}
 
-        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed line-clamp-3">
           {product.description}
         </p>
 
@@ -221,11 +308,11 @@ export function FeaturedProductCard({ product, reverse = false }: FeaturedProduc
           reverse && "md:justify-end"
         )}>
           <span className="text-xl sm:text-2xl font-bold text-foreground">
-            ${product.price}
+            ${product.price.toFixed(2)}
           </span>
           {product.compareAtPrice && (
             <span className="text-base sm:text-lg text-muted-foreground line-through">
-              ${product.compareAtPrice}
+              ${product.compareAtPrice.toFixed(2)}
             </span>
           )}
         </div>

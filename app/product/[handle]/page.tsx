@@ -3,286 +3,383 @@
 import * as React from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Navigation, Footer, CartDrawer, ProductCard } from "@/components/storefront";
+import { useCart } from "@/components/storefront/cart-drawer";
+import { useWishlist } from "@/lib/context/wishlist-context";
 import { RevealText } from "@/components/storefront/animated-text";
-import { CartProvider, useCart } from "@/components/storefront/cart-drawer";
-import { getProductByHandle, products } from "@/lib/products";
+import { getProductByHandle } from "@/lib/shopify";
+import type { Product } from "@/lib/shopify/types";
 import { cn } from "@/lib/utils";
 
-function ProductContent() {
+export default function ProductPage() {
   const params = useParams();
   const handle = params.handle as string;
-  const product = getProductByHandle(handle);
   
-  const { items, isOpen, closeCart, updateQuantity, removeItem, openCart, addItem } = useCart();
+  const { addItem } = useCart();
+  const { isInWishlist, toggleItem } = useWishlist();
+  
+  const [product, setProduct] = React.useState<Product | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [selectedSize, setSelectedSize] = React.useState<string | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
   const [isAdding, setIsAdding] = React.useState(false);
 
-  const relatedProducts = products
-    .filter(p => p.id !== product?.id)
-    .slice(0, 4);
+  React.useEffect(() => {
+    const fetchProduct = async () => {
+      setIsLoading(true);
+      try {
+        const productData = await getProductByHandle(handle);
+        setProduct(productData);
+        if (productData?.sizes && productData.sizes.length > 0) {
+          setSelectedSize(productData.sizes[0]);
+        }
+      } catch (error) {
+        console.error("Error fetching product:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  if (!product) {
+    if (handle) {
+      fetchProduct();
+    }
+  }, [handle]);
+
+  const handleAddToCart = () => {
+    if (!product || !selectedSize) return;
+    
+    setIsAdding(true);
+    
+    const variant = product.variants.find((v) => v.size === selectedSize) || product.variants[0];
+    
+    addItem({
+      id: `${product.id}-${selectedSize}`,
+      title: product.title,
+      price: variant?.price || product.price,
+      size: selectedSize,
+      image: product.image || "",
+    });
+    
+    setTimeout(() => setIsAdding(false), 500);
+  };
+
+  const isWishlisted = product ? isInWishlist(product.id) : false;
+
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-5">
-        <div className="text-center">
-          <h1 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
-            Product Not Found
-          </h1>
-          <p className="text-muted-foreground mb-6 sm:mb-8">
-            This shirt doesn&apos;t exist. Yet.
-          </p>
-          <motion.div whileTap={{ scale: 0.98 }}>
-            <Link
-              href="/shop"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-medium rounded-full hover:bg-primary-hover active:bg-primary-hover transition-colors"
-            >
-              Back to Shop
-            </Link>
-          </motion.div>
+      <div className="pt-16 sm:pt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-16">
+            <div className="aspect-[3/4] bg-secondary rounded-2xl animate-pulse" />
+            <div className="space-y-6">
+              <div className="h-10 w-3/4 bg-secondary rounded-lg animate-pulse" />
+              <div className="h-6 w-1/2 bg-secondary rounded-lg animate-pulse" />
+              <div className="h-24 bg-secondary rounded-lg animate-pulse" />
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  const handleAddToCart = () => {
-    if (!selectedSize) return;
-    
-    setIsAdding(true);
-    setTimeout(() => {
-      addItem({
-        id: `${product.id}-${selectedSize}`,
-        title: product.title,
-        price: product.price,
-        size: selectedSize,
-        image: product.image,
-      });
-      setIsAdding(false);
-    }, 300);
-  };
+  if (!product) {
+    return (
+      <div className="pt-20 sm:pt-24 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <h1 className="text-2xl font-display font-bold text-foreground mb-4">
+            Product not found
+          </h1>
+          <Link href="/shop" className="text-primary hover:underline">
+            Back to shop
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const images = product.images.length > 0 ? product.images : [product.image].filter(Boolean) as string[];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation cartItemCount={items.length} onCartClick={openCart} />
-
-      <main className="pt-14 sm:pt-16 md:pt-20">
+    <div className="pt-16 sm:pt-20 pb-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
-        <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-3 sm:py-4">
-          <nav className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground overflow-x-auto scrollbar-hide">
-            <Link href="/" className="hover:text-foreground active:text-foreground transition-colors whitespace-nowrap">
-              Home
-            </Link>
-            <span>/</span>
-            <Link href="/shop" className="hover:text-foreground active:text-foreground transition-colors whitespace-nowrap">
-              Shop
-            </Link>
-            <span>/</span>
-            <span className="text-foreground truncate">{product.title}</span>
-          </nav>
-        </div>
+        <nav className="mb-6 sm:mb-8">
+          <ol className="flex items-center gap-2 text-sm text-muted-foreground">
+            <li>
+              <Link href="/" className="hover:text-foreground transition-colors">
+                Home
+              </Link>
+            </li>
+            <li>/</li>
+            <li>
+              <Link href="/shop" className="hover:text-foreground transition-colors">
+                Shop
+              </Link>
+            </li>
+            <li>/</li>
+            <li className="text-foreground">{product.title}</li>
+          </ol>
+        </nav>
 
-        {/* Product Details */}
-        <section className="py-4 sm:py-6 md:py-12">
-          <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
-            <div className="grid lg:grid-cols-2 gap-6 lg:gap-12 xl:gap-16">
-              {/* Product Image */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="relative aspect-[3/4] sm:aspect-[4/5] rounded-xl sm:rounded-2xl overflow-hidden bg-secondary"
-              >
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-[8rem] sm:text-[10rem] md:text-[12rem] font-display font-bold text-foreground/[0.03] sm:text-foreground/5">
-                    {product.title.split(" ")[0].charAt(0)}
-                  </p>
-                </div>
-
-                {/* Sale badge */}
-                {product.compareAtPrice && (
-                  <div className="absolute top-4 sm:top-6 left-4 sm:left-6">
-                    <span className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 bg-primary text-primary-foreground text-xs sm:text-sm font-bold rounded-full">
-                      Save ${product.compareAtPrice - product.price}
-                    </span>
-                  </div>
-                )}
-              </motion.div>
-
-              {/* Product Info */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-                className="flex flex-col"
-              >
-                {/* Tags */}
-                <div className="flex gap-2 mb-3 sm:mb-4">
-                  {product.tags.includes("bestseller") && (
-                    <span className="px-2.5 sm:px-3 py-1 bg-accent/10 text-accent text-[10px] sm:text-xs font-medium rounded-full">
-                      Bestseller
-                    </span>
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16">
+          {/* Product Images */}
+          <div className="space-y-4">
+            {/* Main Image */}
+            <motion.div
+              className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-secondary"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={selectedImageIndex}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute inset-0"
+                >
+                  {images[selectedImageIndex] ? (
+                    <img
+                      src={images[selectedImageIndex]}
+                      alt={product.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                      priority
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <p className="text-6xl font-display font-bold text-foreground/5">
+                        {product.title.charAt(0)}
+                      </p>
+                    </div>
                   )}
-                  {product.category && (
-                    <span className="px-2.5 sm:px-3 py-1 bg-secondary text-muted-foreground text-[10px] sm:text-xs font-medium rounded-full capitalize">
-                      {product.category}
-                    </span>
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Wishlist button */}
+              <button
+                onClick={() => toggleItem(product.id)}
+                className="absolute top-4 right-4 h-12 w-12 flex items-center justify-center rounded-full bg-foreground/80 backdrop-blur-sm transition-colors"
+                aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+              >
+                <svg
+                  className={cn(
+                    "w-6 h-6 transition-colors",
+                    isWishlisted ? "text-primary fill-primary" : "text-background"
                   )}
-                </div>
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  fill={isWishlisted ? "currentColor" : "none"}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+                  />
+                </svg>
+              </button>
 
-                {/* Title */}
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-bold text-foreground mb-2">
-                  {product.title}
-                </h1>
-
-                {/* Tagline */}
-                <p className="text-base sm:text-lg md:text-xl text-muted-foreground italic mb-4 sm:mb-6">
-                  &ldquo;{product.tagline}&rdquo;
-                </p>
-
-                {/* Price */}
-                <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-                  <span className="text-2xl sm:text-3xl font-bold text-foreground">
-                    ${product.price}
+              {/* Sale badge */}
+              {product.compareAtPrice && (
+                <div className="absolute top-4 left-4">
+                  <span className="inline-block px-4 py-2 bg-primary text-primary-foreground text-sm font-bold rounded-full">
+                    Sale
                   </span>
-                  {product.compareAtPrice && (
-                    <span className="text-lg sm:text-xl text-muted-foreground line-through">
-                      ${product.compareAtPrice}
-                    </span>
-                  )}
                 </div>
+              )}
+            </motion.div>
 
-                {/* Description */}
-                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed mb-6 sm:mb-8">
-                  {product.description}
-                </p>
+            {/* Thumbnail Images */}
+            {images.length > 1 && (
+              <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+                {images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImageIndex(index)}
+                    className={cn(
+                      "relative flex-shrink-0 w-20 h-24 rounded-lg overflow-hidden border-2 transition-colors",
+                      selectedImageIndex === index
+                        ? "border-primary"
+                        : "border-transparent hover:border-border"
+                    )}
+                  >
+                    <img
+                      src={image}
+                      alt={`${product.title} ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="80px"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-                {/* Size selector */}
-                <div className="mb-6 sm:mb-8">
+          {/* Product Info */}
+          <div className="lg:sticky lg:top-24 lg:self-start space-y-6">
+            <RevealText>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-foreground">
+                {product.title}
+              </h1>
+            </RevealText>
+
+            {/* Price */}
+            <RevealText delay={0.1}>
+              <div className="flex items-center gap-4">
+                <span className="text-2xl sm:text-3xl font-bold text-foreground">
+                  ${product.price.toFixed(2)}
+                </span>
+                {product.compareAtPrice && (
+                  <span className="text-xl text-muted-foreground line-through">
+                    ${product.compareAtPrice.toFixed(2)}
+                  </span>
+                )}
+                {product.compareAtPrice && (
+                  <span className="px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
+                    {Math.round((1 - product.price / product.compareAtPrice) * 100)}% off
+                  </span>
+                )}
+              </div>
+            </RevealText>
+
+            {/* Description */}
+            <RevealText delay={0.15}>
+              <p className="text-muted-foreground leading-relaxed">
+                {product.description}
+              </p>
+            </RevealText>
+
+            {/* Size Selector */}
+            {product.sizes.length > 0 && (
+              <RevealText delay={0.2}>
+                <div>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-foreground">
-                      Select Size
-                    </span>
-                    <button className="text-xs sm:text-sm text-muted-foreground hover:text-foreground active:text-foreground transition-colors">
+                    <span className="text-sm font-medium text-foreground">Size</span>
+                    <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                       Size Guide
                     </button>
                   </div>
-                  <div className="flex flex-wrap gap-2 sm:gap-3">
-                    {product.sizes.map((size) => (
-                      <motion.button
-                        key={size}
-                        onClick={() => setSelectedSize(size)}
-                        whileTap={{ scale: 0.95 }}
-                        className={cn(
-                          "h-12 sm:h-11 min-w-[48px] sm:min-w-[44px] px-4 rounded-lg font-medium transition-colors",
-                          selectedSize === size
-                            ? "bg-foreground text-background"
-                            : "bg-secondary text-foreground hover:bg-border active:bg-border"
-                        )}
-                      >
-                        {size}
-                      </motion.button>
-                    ))}
+                  <div className="flex flex-wrap gap-3">
+                    {product.sizes.map((size) => {
+                      const variant = product.variants.find((v) => v.size === size);
+                      const isAvailable = variant?.availableForSale !== false;
+                      
+                      return (
+                        <button
+                          key={size}
+                          onClick={() => isAvailable && setSelectedSize(size)}
+                          disabled={!isAvailable}
+                          className={cn(
+                            "min-w-[48px] h-12 px-4 rounded-lg font-medium transition-all",
+                            selectedSize === size
+                              ? "bg-foreground text-background"
+                              : isAvailable
+                              ? "bg-secondary text-foreground hover:bg-secondary-hover"
+                              : "bg-secondary/50 text-muted-foreground/50 cursor-not-allowed line-through"
+                          )}
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <AnimatePresence>
-                    {!selectedSize && (
-                      <motion.p
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="text-xs sm:text-sm text-muted-foreground mt-2"
-                      >
-                        Please select a size
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
                 </div>
+              </RevealText>
+            )}
 
-                {/* Add to cart */}
+            {/* Add to Cart */}
+            <RevealText delay={0.25}>
+              <div className="space-y-3 pt-4">
                 <motion.button
                   onClick={handleAddToCart}
-                  disabled={!selectedSize || isAdding}
-                  whileTap={{ scale: selectedSize ? 0.98 : 1 }}
+                  disabled={!product.availableForSale || !selectedSize || isAdding}
+                  whileTap={{ scale: 0.98 }}
                   className={cn(
-                    "w-full h-14 sm:h-12 rounded-full font-medium text-base sm:text-lg transition-all",
-                    selectedSize
-                      ? "bg-primary text-primary-foreground hover:bg-primary-hover active:bg-primary-hover cursor-pointer"
+                    "w-full h-14 font-medium rounded-full transition-colors",
+                    product.availableForSale && selectedSize
+                      ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                       : "bg-secondary text-muted-foreground cursor-not-allowed"
                   )}
                 >
-                  {isAdding ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Adding...
-                    </span>
-                  ) : (
-                    "Add to Rotation"
-                  )}
+                  {!product.availableForSale
+                    ? "Sold Out"
+                    : isAdding
+                    ? "Added!"
+                    : "Add to Cart"}
                 </motion.button>
+              </div>
+            </RevealText>
 
-                {/* Additional info */}
-                <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-border space-y-3 sm:space-y-4">
-                  <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Free shipping on orders over $100</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    <span>30-day returns, no questions asked</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    <span>100% organic cotton, ethically made</span>
+            {/* Product Details */}
+            <RevealText delay={0.3}>
+              <div className="border-t border-border pt-6 space-y-4">
+                <div className="flex items-start gap-3">
+                  <svg
+                    className="w-5 h-5 text-muted-foreground mt-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Premium Quality</p>
+                    <p className="text-sm text-muted-foreground">100% organic cotton</p>
                   </div>
                 </div>
-              </motion.div>
-            </div>
-          </div>
-        </section>
-
-        {/* Related Products */}
-        <section className="py-12 sm:py-16 md:py-20 border-t border-border">
-          <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
-            <RevealText>
-              <h2 className="text-xl sm:text-2xl md:text-3xl font-display font-bold text-foreground mb-6 sm:mb-8">
-                You Might Also Like
-              </h2>
+                <div className="flex items-start gap-3">
+                  <svg
+                    className="w-5 h-5 text-muted-foreground mt-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Free Shipping</p>
+                    <p className="text-sm text-muted-foreground">On orders over $100</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <svg
+                    className="w-5 h-5 text-muted-foreground mt-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Easy Returns</p>
+                    <p className="text-sm text-muted-foreground">30-day return policy</p>
+                  </div>
+                </div>
+              </div>
             </RevealText>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
-              {relatedProducts.map((product, index) => (
-                <ProductCard key={product.id} product={product} index={index} />
-              ))}
-            </div>
           </div>
-        </section>
-      </main>
-
-      <Footer />
-
-      <CartDrawer
-        isOpen={isOpen}
-        onClose={closeCart}
-        items={items}
-        onUpdateQuantity={updateQuantity}
-        onRemoveItem={removeItem}
-      />
+        </div>
+      </div>
     </div>
-  );
-}
-
-export default function ProductPage() {
-  return (
-    <CartProvider>
-      <ProductContent />
-    </CartProvider>
   );
 }

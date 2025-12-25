@@ -2,46 +2,46 @@
 
 /* 
  * TriggerTs - Luxury Meets Internet Money
- * Color palette: High-contrast base with premium accents
+ * Color palette: Clean light mode with premium accents
  */
 :root {
-  /* Base colors - deep black / off-white */
-  --color-background: #0A0A0A;
-  --color-foreground: #FAFAFA;
+  /* Base colors - clean white / rich black */
+  --color-background: #FFFFFF;
+  --color-foreground: #1A1A1A;
   
-  /* Primary - polished gold accent */
-  --color-primary: #C9A227;
-  --color-primary-hover: #E5B82A;
-  --color-primary-foreground: #0A0A0A;
+  /* Primary - rich brown/bronze accent (luxury feel) */
+  --color-primary: #8B7355;
+  --color-primary-hover: #6B5344;
+  --color-primary-foreground: #FFFFFF;
 
-  /* Secondary - chrome/silver */
-  --color-secondary: #1A1A1A;
-  --color-secondary-hover: #2A2A2A;
-  --color-secondary-foreground: #FAFAFA;
+  /* Secondary - soft warm gray */
+  --color-secondary: #F5F5F3;
+  --color-secondary-hover: #EAEAE8;
+  --color-secondary-foreground: #1A1A1A;
 
-  /* Accent - electric neon green */
-  --color-accent: #39FF14;
-  --color-accent-hover: #50FF30;
-  --color-accent-foreground: #0A0A0A;
+  /* Accent - muted gold */
+  --color-accent: #B8956E;
+  --color-accent-hover: #A68560;
+  --color-accent-foreground: #FFFFFF;
 
   /* Muted elements */
-  --color-muted: #1A1A1A;
-  --color-muted-foreground: #888888;
+  --color-muted: #F5F5F3;
+  --color-muted-foreground: #6B6B6B;
 
   /* Border color */
-  --color-border: #2A2A2A;
+  --color-border: #E5E5E5;
 
   /* Card backgrounds */
-  --color-card: #111111;
-  --color-card-foreground: #FAFAFA;
+  --color-card: #FAFAFA;
+  --color-card-foreground: #1A1A1A;
 
   /* Destructive/error states */
-  --color-destructive: #FF3B3B;
+  --color-destructive: #DC2626;
   --color-destructive-foreground: #FFFFFF;
 
   /* Input and form elements */
-  --color-input: #2A2A2A;
-  --color-ring: #C9A227;
+  --color-input: #F5F5F3;
+  --color-ring: #8B7355;
 
   /* Off-white / bone / ivory variants */
   --color-ivory: #F5F5DC;
@@ -126,7 +126,7 @@ body {
 /* Selection styling */
 ::selection {
   background-color: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-primary-foreground);
 }
 
 /* Focus ring utility */
@@ -141,26 +141,26 @@ body {
 
 /* Custom scrollbar - minimal luxury style */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--color-secondary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 3px;
+  background: #D1D1D1;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-muted-foreground);
+  background: #ABABAB;
 }
 
 /* Luxury text gradient */
 .text-gradient {
-  background: linear-gradient(135deg, var(--color-primary) 0%, #E5C563 50%, var(--color-primary) 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, #B8956E 50%, var(--color-primary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -168,11 +168,11 @@ body {
 
 /* Subtle glow effects */
 .glow-gold {
-  box-shadow: 0 0 40px rgba(201, 162, 39, 0.15);
+  box-shadow: 0 0 60px rgba(139, 115, 85, 0.1);
 }
 
 .glow-accent {
-  box-shadow: 0 0 40px rgba(57, 255, 20, 0.1);
+  box-shadow: 0 0 60px rgba(184, 149, 110, 0.1);
 }
 
 /* Noise texture overlay for depth */
