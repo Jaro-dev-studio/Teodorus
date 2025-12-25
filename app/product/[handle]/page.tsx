@@ -141,7 +141,7 @@ export default function ProductPage() {
                   className="absolute inset-0"
                 >
                   {images[selectedImageIndex] ? (
-                    <img
+                    <Image
                       src={images[selectedImageIndex]}
                       alt={product.title}
                       fill
@@ -207,7 +207,7 @@ export default function ProductPage() {
                         : "border-transparent hover:border-border"
                     )}
                   >
-                    <img
+                    <Image
                       src={image}
                       alt={`${product.title} ${index + 1}`}
                       fill

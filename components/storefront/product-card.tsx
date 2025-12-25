@@ -71,7 +71,7 @@ export function ProductCard({ product, index = 0, priority = false }: ProductCar
               }}
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             >
-              <img
+              <Image
                 src={product.image}
                 alt={product.title}
                 fill
@@ -232,7 +232,7 @@ export function FeaturedProductCard({ product, reverse = false }: FeaturedProduc
           transition={{ duration: 0.3 }}
         >
           {product.image ? (
-            <img
+            <Image
               src={product.image}
               alt={product.title}
               fill

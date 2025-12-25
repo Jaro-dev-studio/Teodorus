@@ -73,7 +73,7 @@ export default function CollectionsPage() {
                   >
                     <div className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-card mb-4">
                       {collection.image ? (
-                        <img
+                        <Image
                           src={collection.image}
                           alt={collection.title}
                           fill
