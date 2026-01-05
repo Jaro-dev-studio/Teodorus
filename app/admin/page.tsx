@@ -3,9 +3,9 @@
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { getProducts } from "@/lib/shopify";
 import type { Product } from "@/lib/shopify/types";
 import {
+  getProducts,
   getMergedProducts,
   createMergedProduct,
   deleteMergedProduct,

@@ -1,6 +1,15 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { getProducts as getShopifyProducts } from "@/lib/shopify";
+import type { Product } from "@/lib/shopify/types";
+
+export async function getProducts(): Promise<Product[]> {
+  console.log("[Admin] Fetching products from Shopify...");
+  const products = await getShopifyProducts({ includeHidden: true });
+  console.log("[Admin] Found", products.length, "products");
+  return products;
+}
 
 export async function getMergedProducts() {
   console.log("[Admin] Fetching merged products from database...");
