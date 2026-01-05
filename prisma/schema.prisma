@@ -1,0 +1,26 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+// Merged products configuration
+// When products are merged, the secondary product becomes variants of the primary product
+model MergedProduct {
+  id                String   @id @default(cuid())
+  primaryHandle     String   // Shopify handle of the primary product
+  secondaryHandle   String   // Shopify handle of the secondary product (will be hidden)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([primaryHandle, secondaryHandle])
+  @@index([primaryHandle])
+  @@index([secondaryHandle])
+}

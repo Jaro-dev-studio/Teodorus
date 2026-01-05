@@ -4,6 +4,12 @@
 
 import { shopifyFetch, isShopifyConfigured } from "./client";
 import * as queries from "./queries";
+import {
+  filterHiddenProducts,
+  getSecondaryHandles,
+  getPrimaryForSecondary,
+  mergeProductVariants,
+} from "./merged-products";
 import type {
   Product,
   ProductVariant,
@@ -17,6 +23,9 @@ import type {
 
 // Check configuration
 export { isShopifyConfigured };
+
+// Re-export merged products utilities
+export { filterHiddenProducts, getSecondaryHandles, getPrimaryForSecondary };
 
 // Normalize Shopify product to our Product type
 function normalizeProduct(shopifyProduct: ShopifyProduct): Product {
@@ -71,11 +80,12 @@ function normalizeProduct(shopifyProduct: ShopifyProduct): Product {
   };
 }
 
-// Get all products
+// Get all products (filters out hidden/merged secondary products)
 export async function getProducts(options?: {
   first?: number;
   sortKey?: "BEST_SELLING" | "PRICE" | "CREATED_AT" | "TITLE";
   reverse?: boolean;
+  includeHidden?: boolean; // Set to true for admin panel
 }): Promise<Product[]> {
   console.log("[Shopify] getProducts called");
   console.log("[Shopify] isShopifyConfigured:", isShopifyConfigured());
@@ -87,7 +97,7 @@ export async function getProducts(options?: {
     return [];
   }
 
-  const { first = 50, sortKey = "BEST_SELLING", reverse = false } = options || {};
+  const { first = 50, sortKey = "BEST_SELLING", reverse = false, includeHidden = false } = options || {};
 
   console.log("[Shopify] Fetching products with options:", { first, sortKey, reverse });
 
@@ -104,13 +114,19 @@ export async function getProducts(options?: {
   console.log("[Shopify] Raw products count:", data.products?.edges?.length ?? 0);
   console.log("[Shopify] Product titles:", data.products?.edges?.map((e) => e.node.title) ?? []);
   
-  const products = data.products.edges.map((e) => normalizeProduct(e.node));
+  let products = data.products.edges.map((e) => normalizeProduct(e.node));
   console.log("[Shopify] Normalized products:", products.length);
+  
+  // Filter out hidden products unless explicitly requested
+  if (!includeHidden) {
+    products = await filterHiddenProducts(products);
+    console.log("[Shopify] After filtering hidden:", products.length, "products");
+  }
   
   return products;
 }
 
-// Get products by collection
+// Get products by collection (filters out hidden/merged secondary products)
 export async function getCollectionProducts(
   handle: string,
   options?: {
@@ -137,7 +153,10 @@ export async function getCollectionProducts(
     return { collection: null, products: [] };
   }
 
-  const products = data.collection.products.edges.map((e) => normalizeProduct(e.node));
+  let products = data.collection.products.edges.map((e) => normalizeProduct(e.node));
+  
+  // Filter out hidden products
+  products = await filterHiddenProducts(products);
   
   return {
     collection: {
@@ -152,9 +171,17 @@ export async function getCollectionProducts(
   };
 }
 
-// Get single product
+// Get single product (with merged variants from secondary products)
 export async function getProductByHandle(handle: string): Promise<Product | null> {
   if (!isShopifyConfigured()) {
+    return null;
+  }
+
+  // Check if this handle is a secondary (hidden) product
+  const primaryHandle = await getPrimaryForSecondary(handle);
+  if (primaryHandle) {
+    console.log("[Shopify] Product", handle, "is secondary, redirecting to primary:", primaryHandle);
+    // Return null - the product page should redirect to the primary product
     return null;
   }
 
@@ -170,7 +197,36 @@ export async function getProductByHandle(handle: string): Promise<Product | null
     return null;
   }
 
-  return normalizeProduct(data.product);
+  let product = normalizeProduct(data.product);
+
+  // Check if this product has any merged secondary products
+  const secondaryHandles = await getSecondaryHandles(handle);
+  
+  if (secondaryHandles.length > 0) {
+    console.log("[Shopify] Product", handle, "has merged secondaries:", secondaryHandles);
+    
+    // Fetch all secondary products
+    const secondaryProducts: Product[] = [];
+    
+    for (const secondaryHandle of secondaryHandles) {
+      const secondaryData = await shopifyFetch<{
+        product: ShopifyProduct | null;
+      }>({
+        query: queries.GET_PRODUCT_BY_HANDLE,
+        variables: { handle: secondaryHandle },
+        cache: "no-store",
+      });
+      
+      if (secondaryData.product) {
+        secondaryProducts.push(normalizeProduct(secondaryData.product));
+      }
+    }
+    
+    // Merge variants from secondary products
+    product = mergeProductVariants(product, secondaryProducts);
+  }
+
+  return product;
 }
 
 // Get products by IDs (for wishlist)
@@ -192,7 +248,7 @@ export async function getProductsByIds(ids: string[]): Promise<Product[]> {
     .map(normalizeProduct);
 }
 
-// Search products
+// Search products (filters out hidden/merged secondary products)
 export async function searchProducts(query: string, first = 20): Promise<Product[]> {
   if (!isShopifyConfigured() || !query.trim()) {
     return [];
@@ -208,7 +264,12 @@ export async function searchProducts(query: string, first = 20): Promise<Product
     cache: "no-store",
   });
 
-  return data.search.edges.map((e) => normalizeProduct(e.node));
+  let products = data.search.edges.map((e) => normalizeProduct(e.node));
+  
+  // Filter out hidden products
+  products = await filterHiddenProducts(products);
+  
+  return products;
 }
 
 // Get all collections

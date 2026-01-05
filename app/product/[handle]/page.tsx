@@ -12,6 +12,40 @@ import { getProductByHandle } from "@/lib/shopify";
 import type { Product } from "@/lib/shopify/types";
 import { cn } from "@/lib/utils";
 
+// Color name to CSS color mapping for visual swatches
+const COLOR_MAP: Record<string, string> = {
+  black: "#000000",
+  white: "#FFFFFF",
+  red: "#DC2626",
+  blue: "#2563EB",
+  navy: "#1E3A5F",
+  green: "#16A34A",
+  yellow: "#EAB308",
+  orange: "#EA580C",
+  pink: "#EC4899",
+  purple: "#9333EA",
+  gray: "#6B7280",
+  grey: "#6B7280",
+  brown: "#92400E",
+  beige: "#D4C4A8",
+  cream: "#FFFDD0",
+  tan: "#D2B48C",
+  olive: "#808000",
+  teal: "#0D9488",
+  coral: "#FF7F50",
+  burgundy: "#800020",
+  maroon: "#800000",
+  charcoal: "#36454F",
+  sand: "#C2B280",
+  khaki: "#C3B091",
+  natural: "#F5F5DC",
+};
+
+function getColorValue(colorName: string): string {
+  const normalized = colorName.toLowerCase().trim();
+  return COLOR_MAP[normalized] || "#9CA3AF"; // Default gray if not found
+}
+
 export default function ProductPage() {
   const params = useParams();
   const handle = params.handle as string;
@@ -22,6 +56,7 @@ export default function ProductPage() {
   const [product, setProduct] = React.useState<Product | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedSize, setSelectedSize] = React.useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = React.useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
   const [isAdding, setIsAdding] = React.useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = React.useState(false);
@@ -43,6 +78,10 @@ export default function ProductPage() {
         if (productData?.sizes && productData.sizes.length > 0) {
           setSelectedSize(productData.sizes[0]);
         }
+        // Set first color as default if available
+        if (productData?.colors && productData.colors.length > 0) {
+          setSelectedColor(productData.colors[0]);
+        }
       } catch (error) {
         console.error("Error fetching product:", error);
       } finally {
@@ -54,6 +93,39 @@ export default function ProductPage() {
       fetchProduct();
     }
   }, [handle]);
+
+  // Get images filtered by selected color
+  const getFilteredImages = React.useCallback(() => {
+    if (!product) return [];
+    
+    // If no colors or no color selected, show all images
+    if (product.colors.length === 0 || !selectedColor) {
+      return product.images.length > 0 ? product.images : [product.image].filter(Boolean) as string[];
+    }
+    
+    // Get variant images for the selected color
+    const colorVariants = product.variants.filter((v) => v.color === selectedColor);
+    const variantImages = colorVariants
+      .map((v) => v.image)
+      .filter((img): img is string => img !== null);
+    
+    // If we have variant images, use them
+    if (variantImages.length > 0) {
+      return variantImages;
+    }
+    
+    // Fallback to all images if no variant-specific images
+    return product.images.length > 0 ? product.images : [product.image].filter(Boolean) as string[];
+  }, [product, selectedColor]);
+
+  // Reset image index when color changes
+  React.useEffect(() => {
+    setSelectedImageIndex(0);
+    // Also scroll carousel to start on mobile
+    if (carouselRef.current) {
+      carouselRef.current.scrollTo({ left: 0, behavior: "smooth" });
+    }
+  }, [selectedColor]);
 
   // Handle carousel scroll to update selected image index
   React.useEffect(() => {
@@ -76,15 +148,32 @@ export default function ProductPage() {
     
     setIsAdding(true);
     
-    const variant = product.variants.find((v) => v.size === selectedSize) || product.variants[0];
+    // Find variant matching both size and color (if color is selected)
+    let variant = product.variants.find((v) => {
+      const sizeMatch = v.size === selectedSize;
+      const colorMatch = !selectedColor || v.color === selectedColor;
+      return sizeMatch && colorMatch;
+    });
+    
+    // Fallback to just size match if no exact match
+    if (!variant) {
+      variant = product.variants.find((v) => v.size === selectedSize);
+    }
+    
+    // Final fallback to first variant
+    if (!variant) {
+      variant = product.variants[0];
+    }
+    
+    const images = getFilteredImages();
     
     addItem({
-      id: `${product.id}-${selectedSize}`,
+      id: `${product.id}-${selectedSize}${selectedColor ? `-${selectedColor}` : ""}`,
       variantId: variant?.id || product.variants[0]?.id,
       title: product.title,
       price: variant?.price || product.price,
       size: selectedSize,
-      image: product.image || "",
+      image: images[0] || product.image || "",
     });
     
     setTimeout(() => setIsAdding(false), 500);
@@ -143,7 +232,8 @@ export default function ProductPage() {
     );
   }
 
-  const images = product.images.length > 0 ? product.images : [product.image].filter(Boolean) as string[];
+  // Use filtered images based on selected color
+  const images = getFilteredImages();
 
   return (
     <div className="pt-14 sm:pt-20 pb-24 sm:pb-20">
@@ -414,15 +504,85 @@ export default function ProductPage() {
               </RevealText>
             )}
 
+            {/* Color Selector */}
+            {product.colors.length > 0 && (
+              <RevealText delay={0.2}>
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-foreground">Color</span>
+                    {selectedColor && (
+                      <span className="text-sm text-muted-foreground capitalize">{selectedColor}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2 sm:gap-3">
+                    {product.colors.map((color) => {
+                      // Check if any variant with this color is available
+                      const colorVariants = product.variants.filter((v) => v.color === color);
+                      const isAvailable = colorVariants.some((v) => v.availableForSale !== false);
+                      const colorValue = getColorValue(color);
+                      const isLight = colorValue.toLowerCase() === "#ffffff" || color.toLowerCase() === "white" || color.toLowerCase() === "cream";
+                      
+                      return (
+                        <button
+                          key={color}
+                          onClick={() => isAvailable && setSelectedColor(color)}
+                          disabled={!isAvailable}
+                          aria-label={`Select ${color} color`}
+                          className={cn(
+                            "relative w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all active:scale-95",
+                            selectedColor === color
+                              ? "ring-2 ring-offset-2 ring-foreground ring-offset-background"
+                              : "hover:ring-2 hover:ring-offset-2 hover:ring-border hover:ring-offset-background",
+                            !isAvailable && "opacity-40 cursor-not-allowed"
+                          )}
+                          style={{ backgroundColor: colorValue }}
+                        >
+                          {/* Border for light colors */}
+                          {isLight && (
+                            <span className="absolute inset-0 rounded-full border border-border" />
+                          )}
+                          {/* Checkmark for selected */}
+                          {selectedColor === color && (
+                            <span className="absolute inset-0 flex items-center justify-center">
+                              <svg
+                                className={cn("w-4 h-4", isLight ? "text-foreground" : "text-white")}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={3}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            </span>
+                          )}
+                          {/* Strikethrough for unavailable */}
+                          {!isAvailable && (
+                            <span className="absolute inset-0 flex items-center justify-center">
+                              <span className="w-full h-0.5 bg-red-500 rotate-45 rounded-full" />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </RevealText>
+            )}
+
             {/* Size Selector */}
             {product.sizes.length > 0 && (
-              <RevealText delay={0.2}>
+              <RevealText delay={0.25}>
                 <div>
                   <span className="block text-sm font-medium text-foreground mb-3">Size</span>
                   <div className="flex flex-wrap gap-2 sm:gap-3">
                     {product.sizes.map((size) => {
-                      const variant = product.variants.find((v) => v.size === size);
-                      const isAvailable = variant?.availableForSale !== false;
+                      // Check availability based on both size and selected color
+                      const matchingVariants = product.variants.filter((v) => {
+                        const sizeMatch = v.size === size;
+                        const colorMatch = !selectedColor || v.color === selectedColor;
+                        return sizeMatch && colorMatch;
+                      });
+                      const isAvailable = matchingVariants.some((v) => v.availableForSale !== false);
                       
                       return (
                         <button
@@ -448,7 +608,7 @@ export default function ProductPage() {
             )}
 
             {/* Add to Cart - Sticky on mobile */}
-            <RevealText delay={0.25}>
+            <RevealText delay={0.3}>
               <div className="hidden sm:block space-y-3 pt-4">
                 <motion.button
                   onClick={handleAddToCart}
@@ -471,7 +631,7 @@ export default function ProductPage() {
             </RevealText>
 
             {/* Product Details */}
-            <RevealText delay={0.3}>
+            <RevealText delay={0.35}>
               <div className="border-t border-border pt-5 sm:pt-6 space-y-3 sm:space-y-4">
                 <div className="flex items-start gap-3">
                   <svg
