@@ -8,43 +8,9 @@ import { useCart } from "@/components/storefront/cart-drawer";
 import { useWishlist } from "@/lib/context/wishlist-context";
 import { RevealText } from "@/components/storefront/animated-text";
 import { ImageLightbox } from "@/components/storefront/image-lightbox";
-import { getProductByHandle } from "@/lib/shopify";
 import type { Product } from "@/lib/shopify/types";
 import { cn } from "@/lib/utils";
 
-// Color name to CSS color mapping for visual swatches
-const COLOR_MAP: Record<string, string> = {
-  black: "#000000",
-  white: "#FFFFFF",
-  red: "#DC2626",
-  blue: "#2563EB",
-  navy: "#1E3A5F",
-  green: "#16A34A",
-  yellow: "#EAB308",
-  orange: "#EA580C",
-  pink: "#EC4899",
-  purple: "#9333EA",
-  gray: "#6B7280",
-  grey: "#6B7280",
-  brown: "#92400E",
-  beige: "#D4C4A8",
-  cream: "#FFFDD0",
-  tan: "#D2B48C",
-  olive: "#808000",
-  teal: "#0D9488",
-  coral: "#FF7F50",
-  burgundy: "#800020",
-  maroon: "#800000",
-  charcoal: "#36454F",
-  sand: "#C2B280",
-  khaki: "#C3B091",
-  natural: "#F5F5DC",
-};
-
-function getColorValue(colorName: string): string {
-  const normalized = colorName.toLowerCase().trim();
-  return COLOR_MAP[normalized] || "#9CA3AF"; // Default gray if not found
-}
 
 export default function ProductPage() {
   const params = useParams();
@@ -73,7 +39,15 @@ export default function ProductPage() {
     const fetchProduct = async () => {
       setIsLoading(true);
       try {
-        const productData = await getProductByHandle(handle);
+        const res = await fetch(`/api/products/${handle}`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            setProduct(null);
+            return;
+          }
+          throw new Error("Failed to fetch product");
+        }
+        const productData: Product = await res.json();
         setProduct(productData);
         if (productData?.sizes && productData.sizes.length > 0) {
           setSelectedSize(productData.sizes[0]);
@@ -117,6 +91,29 @@ export default function ProductPage() {
     // Fallback to all images if no variant-specific images
     return product.images.length > 0 ? product.images : [product.image].filter(Boolean) as string[];
   }, [product, selectedColor]);
+
+  // Preload all product images when product loads
+  React.useEffect(() => {
+    if (!product) return;
+    
+    // Collect all unique image URLs from the product
+    const allImages = new Set<string>();
+    
+    // Add main product images
+    product.images.forEach((img) => allImages.add(img));
+    if (product.image) allImages.add(product.image);
+    
+    // Add all variant images
+    product.variants.forEach((variant) => {
+      if (variant.image) allImages.add(variant.image);
+    });
+    
+    // Preload each image
+    allImages.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, [product]);
 
   // Reset image index when color changes
   React.useEffect(() => {
@@ -508,59 +505,28 @@ export default function ProductPage() {
             {product.colors.length > 0 && (
               <RevealText delay={0.2}>
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-foreground">Color</span>
-                    {selectedColor && (
-                      <span className="text-sm text-muted-foreground capitalize">{selectedColor}</span>
-                    )}
-                  </div>
+                  <span className="block text-sm font-medium text-foreground mb-3">Color</span>
                   <div className="flex flex-wrap gap-2 sm:gap-3">
                     {product.colors.map((color) => {
                       // Check if any variant with this color is available
                       const colorVariants = product.variants.filter((v) => v.color === color);
                       const isAvailable = colorVariants.some((v) => v.availableForSale !== false);
-                      const colorValue = getColorValue(color);
-                      const isLight = colorValue.toLowerCase() === "#ffffff" || color.toLowerCase() === "white" || color.toLowerCase() === "cream";
                       
                       return (
                         <button
                           key={color}
                           onClick={() => isAvailable && setSelectedColor(color)}
                           disabled={!isAvailable}
-                          aria-label={`Select ${color} color`}
                           className={cn(
-                            "relative w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all active:scale-95",
+                            "h-11 sm:h-12 px-4 sm:px-5 rounded-lg font-medium transition-all active:scale-95 capitalize",
                             selectedColor === color
-                              ? "ring-2 ring-offset-2 ring-foreground ring-offset-background"
-                              : "hover:ring-2 hover:ring-offset-2 hover:ring-border hover:ring-offset-background",
-                            !isAvailable && "opacity-40 cursor-not-allowed"
+                              ? "bg-foreground text-background"
+                              : isAvailable
+                              ? "bg-secondary text-foreground hover:bg-secondary-hover"
+                              : "bg-secondary/50 text-muted-foreground/50 cursor-not-allowed line-through"
                           )}
-                          style={{ backgroundColor: colorValue }}
                         >
-                          {/* Border for light colors */}
-                          {isLight && (
-                            <span className="absolute inset-0 rounded-full border border-border" />
-                          )}
-                          {/* Checkmark for selected */}
-                          {selectedColor === color && (
-                            <span className="absolute inset-0 flex items-center justify-center">
-                              <svg
-                                className={cn("w-4 h-4", isLight ? "text-foreground" : "text-white")}
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={3}
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            </span>
-                          )}
-                          {/* Strikethrough for unavailable */}
-                          {!isAvailable && (
-                            <span className="absolute inset-0 flex items-center justify-center">
-                              <span className="w-full h-0.5 bg-red-500 rotate-45 rounded-full" />
-                            </span>
-                          )}
+                          {color}
                         </button>
                       );
                     })}

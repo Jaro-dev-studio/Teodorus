@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useAuth } from "./auth-context";
-import { getProductsByIds } from "@/lib/shopify";
 import type { Product } from "@/lib/shopify/types";
 
 const WISHLIST_STORAGE_KEY = "triggerTs_wishlist";
@@ -73,7 +72,17 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const productData = await getProductsByIds(items);
+        const res = await fetch("/api/products/by-ids", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ ids: items }),
+        });
+        if (!res.ok) {
+          throw new Error("Failed to fetch wishlist products");
+        }
+        const productData: Product[] = await res.json();
         setProducts(productData);
       } catch (error) {
         console.error("Error fetching wishlist products:", error);

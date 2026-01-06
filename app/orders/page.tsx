@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useAuth } from "@/lib/context/auth-context";
-import { getCustomerOrders } from "@/lib/shopify";
 import type { Order } from "@/lib/shopify/types";
 import { Button } from "@/components/ui/button";
 import { RevealText } from "@/components/storefront/animated-text";
@@ -64,7 +63,15 @@ export default function OrdersPage() {
       try {
         const token = localStorage.getItem(AUTH_TOKEN_KEY);
         if (token) {
-          const ordersData = await getCustomerOrders(token);
+          const res = await fetch("/api/orders", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (!res.ok) {
+            throw new Error("Failed to fetch orders");
+          }
+          const ordersData: Order[] = await res.json();
           setOrders(ordersData);
         }
       } catch (error) {

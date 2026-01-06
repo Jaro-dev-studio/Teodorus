@@ -1,13 +1,6 @@
 "use client";
 
 import * as React from "react";
-import {
-  customerLogin,
-  customerRegister,
-  customerLogout,
-  getCustomer,
-  customerRecover,
-} from "@/lib/shopify";
 import type { Customer } from "@/lib/shopify/types";
 
 const AUTH_TOKEN_KEY = "shopify_customer_token";
@@ -45,8 +38,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (token && expiry) {
           // Check if token is expired
           if (new Date(expiry) > new Date()) {
-            const customerData = await getCustomer(token);
-            if (customerData) {
+            const res = await fetch("/api/auth/customer", {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            if (res.ok) {
+              const customerData: Customer = await res.json();
               setCustomer(customerData);
             } else {
               // Token invalid, clear storage
@@ -74,19 +72,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const result = await customerLogin(email, password);
+      const loginRes = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-      if ("error" in result) {
-        return { success: false, error: result.error };
+      if (!loginRes.ok) {
+        const errorData = await loginRes.json();
+        return { success: false, error: errorData.error || "Login failed" };
       }
+
+      const result: { accessToken: string; expiresAt: string } = await loginRes.json();
 
       // Store token
       localStorage.setItem(AUTH_TOKEN_KEY, result.accessToken);
       localStorage.setItem(AUTH_TOKEN_EXPIRY_KEY, result.expiresAt);
 
       // Fetch customer data
-      const customerData = await getCustomer(result.accessToken);
-      if (customerData) {
+      const customerRes = await fetch("/api/auth/customer", {
+        headers: {
+          Authorization: `Bearer ${result.accessToken}`,
+        },
+      });
+      if (customerRes.ok) {
+        const customerData: Customer = await customerRes.json();
         setCustomer(customerData);
       }
 
@@ -104,10 +116,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     lastName?: string;
   }): Promise<{ success: boolean; error?: string }> => {
     try {
-      const result = await customerRegister(input);
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(input),
+      });
 
-      if ("error" in result) {
-        return { success: false, error: result.error };
+      if (!res.ok) {
+        const errorData = await res.json();
+        return { success: false, error: errorData.error || "Registration failed" };
       }
 
       // Auto-login after registration
@@ -122,7 +141,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const token = localStorage.getItem(AUTH_TOKEN_KEY);
       if (token) {
-        await customerLogout(token);
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
       }
     } catch (error) {
       console.error("Logout error:", error);
@@ -137,8 +161,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const result = await customerRecover(email);
-      return result;
+      const res = await fetch("/api/auth/recover", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        return { success: false, error: errorData.error || "Recovery failed" };
+      }
+
+      return { success: true };
     } catch (error) {
       console.error("Password recovery error:", error);
       return { success: false, error: "An unexpected error occurred" };
@@ -148,9 +184,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshCustomer = async (): Promise<void> => {
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
     if (token) {
-      const customerData = await getCustomer(token);
-      if (customerData) {
-        setCustomer(customerData);
+      try {
+        const res = await fetch("/api/auth/customer", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok) {
+          const customerData: Customer = await res.json();
+          setCustomer(customerData);
+        }
+      } catch (error) {
+        console.error("Error refreshing customer:", error);
       }
     }
   };

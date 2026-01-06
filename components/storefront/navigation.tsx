@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/context/auth-context";
 import { useWishlist } from "@/lib/context/wishlist-context";
-import { searchProducts, getCollections } from "@/lib/shopify";
 import type { Product, Collection } from "@/lib/shopify/types";
 
 interface NavigationProps {
@@ -104,7 +103,11 @@ export function Navigation({ cartItemCount = 0, onCartClick }: NavigationProps) 
   React.useEffect(() => {
     const fetchCollections = async () => {
       try {
-        const data = await getCollections();
+        const res = await fetch("/api/collections");
+        if (!res.ok) {
+          throw new Error("Failed to fetch collections");
+        }
+        const data: Omit<Collection, "products">[] = await res.json();
         setCollections(data);
       } catch (error) {
         console.error("Error fetching collections:", error);
@@ -146,7 +149,11 @@ export function Navigation({ cartItemCount = 0, onCartClick }: NavigationProps) 
     setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const results = await searchProducts(searchQuery, 8);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}&first=8`);
+        if (!res.ok) {
+          throw new Error("Search failed");
+        }
+        const results: Product[] = await res.json();
         setSearchResults(results);
       } catch (error) {
         console.error("Search error:", error);
