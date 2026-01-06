@@ -501,8 +501,8 @@ export default function ProductPage() {
               </RevealText>
             )}
 
-            {/* Color Selector */}
-            {product.colors.length > 0 && (
+            {/* Color Selector - only show if multiple colors */}
+            {product.colors.length > 1 && (
               <RevealText delay={0.2}>
                 <div>
                   <span className="block text-sm font-medium text-foreground mb-3">Color</span>
@@ -535,8 +535,8 @@ export default function ProductPage() {
               </RevealText>
             )}
 
-            {/* Size Selector */}
-            {product.sizes.length > 0 && (
+            {/* Size Selector - only show if multiple sizes */}
+            {product.sizes.length > 1 && (
               <RevealText delay={0.25}>
                 <div>
                   <span className="block text-sm font-medium text-foreground mb-3">Size</span>
