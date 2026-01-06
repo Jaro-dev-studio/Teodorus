@@ -12,7 +12,7 @@ interface CartItem {
   variantId?: string;
   title: string;
   price: number;
-  size: string;
+  size?: string;
   quantity: number;
   image: string;
 }

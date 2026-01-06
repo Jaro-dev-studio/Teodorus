@@ -82,7 +82,15 @@ export default function ProductPage() {
       return allImages;
     }
     
-    // Get the variant image for the selected color
+    // Use imagesByColor from Admin API if available (proper variant-image associations)
+    if (product.imagesByColor && Object.keys(product.imagesByColor).length > 0) {
+      const colorImages = product.imagesByColor[selectedColor];
+      if (colorImages && colorImages.length > 0) {
+        return colorImages;
+      }
+    }
+    
+    // Fallback: Get the variant image for the selected color
     const selectedColorVariant = product.variants.find((v) => v.color === selectedColor && v.image);
     const selectedColorImage = selectedColorVariant?.image;
     
@@ -90,90 +98,9 @@ export default function ProductPage() {
       return allImages;
     }
     
-    // Find the position of the selected color's variant image in allImages
-    const variantImageIndex = allImages.findIndex((img) => img === selectedColorImage);
-    
-    if (variantImageIndex === -1) {
-      return allImages;
-    }
-    
-    // Get all variant images with their positions, sorted by index
-    const variantImagePositions = product.variants
-      .filter((v) => v.image)
-      .map((v) => ({
-        color: v.color,
-        image: v.image as string,
-        index: allImages.findIndex((img) => img === v.image)
-      }))
-      .filter((v) => v.index !== -1);
-    
-    // Remove duplicates (same color may have multiple variants with same image)
-    const uniqueVariantPositions = variantImagePositions
-      .filter((v, i, arr) => arr.findIndex((x) => x.color === v.color) === i)
-      .sort((a, b) => a.index - b.index);
-    
-    // Find batch boundaries (groups of consecutive variant images)
-    const batches: Array<{ startIndex: number; variantEndIndex: number; batchEndIndex: number; colors: string[]; colorIndices: number[] }> = [];
-    let currentBatch: typeof batches[0] | null = null;
-    
-    for (const vp of uniqueVariantPositions) {
-      if (!currentBatch) {
-        currentBatch = { startIndex: vp.index, variantEndIndex: vp.index, batchEndIndex: 0, colors: [vp.color!], colorIndices: [vp.index] };
-      } else if (vp.index <= currentBatch.variantEndIndex + 4) {
-        currentBatch.variantEndIndex = vp.index;
-        currentBatch.colors.push(vp.color!);
-        currentBatch.colorIndices.push(vp.index);
-      } else {
-        batches.push(currentBatch);
-        currentBatch = { startIndex: vp.index, variantEndIndex: vp.index, batchEndIndex: 0, colors: [vp.color!], colorIndices: [vp.index] };
-      }
-    }
-    if (currentBatch) batches.push(currentBatch);
-    
-    // Calculate batch end indices
-    for (let i = 0; i < batches.length; i++) {
-      const nextBatch = batches[i + 1];
-      batches[i].batchEndIndex = nextBatch ? nextBatch.startIndex : allImages.length;
-    }
-    
-    // Find which batch contains the selected color
-    const selectedBatch = batches.find((b) => b.colors.includes(selectedColor));
-    
-    const colorImages: string[] = [];
-    
-    if (selectedBatch && selectedBatch.colors.length > 1) {
-      // Multiple colors in batch
-      // Pattern: variant images first (grouped), then additional images grouped by color
-      const batchColorCount = selectedBatch.colors.length;
-      const colorPositionInBatch = selectedBatch.colors.indexOf(selectedColor);
-      
-      // First image: the variant image
-      colorImages.push(selectedColorImage);
-      
-      // Additional images start after all variant images in this batch
-      const additionalImagesStart = selectedBatch.variantEndIndex + 1;
-      const additionalImagesCount = selectedBatch.batchEndIndex - additionalImagesStart;
-      const additionalPerColor = Math.floor(additionalImagesCount / batchColorCount);
-      
-      // Additional images are grouped: color0's extras, then color1's extras, etc.
-      const colorAdditionalStart = additionalImagesStart + (colorPositionInBatch * additionalPerColor);
-      for (let i = 0; i < additionalPerColor; i++) {
-        const imageIndex = colorAdditionalStart + i;
-        if (imageIndex < selectedBatch.batchEndIndex && !colorImages.includes(allImages[imageIndex])) {
-          colorImages.push(allImages[imageIndex]);
-        }
-      }
-    } else {
-      // Single color in batch: take 4 consecutive images starting from variant image
-      for (let i = 0; i < 4; i++) {
-        const imageIndex = variantImageIndex + i;
-        if (imageIndex < allImages.length) {
-          colorImages.push(allImages[imageIndex]);
-        }
-      }
-    }
-    
-    return colorImages.length > 0 ? colorImages : [selectedColorImage];
+    // Fallback: Return all images with the selected color's variant image first
+    const otherImages = allImages.filter((img) => img !== selectedColorImage);
+    return [selectedColorImage, ...otherImages];
   }, [product, selectedColor]);
 
   // Preload all product images when product loads
@@ -225,7 +152,7 @@ export default function ProductPage() {
   }, [product]);
 
   const handleAddToCart = () => {
-    if (!product || !selectedSize) return;
+    if (!product) return;
     
     setIsAdding(true);
     
@@ -249,11 +176,11 @@ export default function ProductPage() {
     const images = getFilteredImages();
     
     addItem({
-      id: `${product.id}-${selectedSize}${selectedColor ? `-${selectedColor}` : ""}`,
+      id: `${product.id}${selectedSize ? `-${selectedSize}` : ""}${selectedColor ? `-${selectedColor}` : ""}`,
       variantId: variant?.id || product.variants[0]?.id,
       title: product.title,
       price: variant?.price || product.price,
-      size: selectedSize,
+      size: selectedSize || undefined,
       image: images[0] || product.image || "",
     });
     
@@ -662,11 +589,11 @@ export default function ProductPage() {
               <div className="hidden sm:block space-y-3 pt-4">
                 <motion.button
                   onClick={handleAddToCart}
-                  disabled={!product.availableForSale || !selectedSize || isAdding}
+                  disabled={!product.availableForSale || (product.sizes.length > 0 && !selectedSize) || isAdding}
                   whileTap={{ scale: 0.98 }}
                   className={cn(
                     "w-full h-14 font-medium rounded-full transition-colors",
-                    product.availableForSale && selectedSize
+                    product.availableForSale && (product.sizes.length === 0 || selectedSize)
                       ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                       : "bg-secondary text-muted-foreground cursor-not-allowed"
                   )}
@@ -699,7 +626,6 @@ export default function ProductPage() {
                   </svg>
                   <div>
                     <p className="text-sm font-medium text-foreground">Premium Quality</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">100% organic cotton</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -756,11 +682,11 @@ export default function ProductPage() {
             </div>
             <motion.button
               onClick={handleAddToCart}
-              disabled={!product.availableForSale || !selectedSize || isAdding}
+              disabled={!product.availableForSale || (product.sizes.length > 0 && !selectedSize) || isAdding}
               whileTap={{ scale: 0.98 }}
               className={cn(
                 "flex-1 h-12 font-medium rounded-full transition-colors",
-                product.availableForSale && selectedSize
+                product.availableForSale && (product.sizes.length === 0 || selectedSize)
                   ? "bg-primary text-primary-foreground active:bg-primary-hover"
                   : "bg-secondary text-muted-foreground cursor-not-allowed"
               )}
@@ -769,9 +695,9 @@ export default function ProductPage() {
                 ? "Sold Out"
                 : isAdding
                 ? "Added!"
-                : selectedSize
-                ? "Add to Cart"
-                : "Select Size"}
+                : product.sizes.length > 0 && !selectedSize
+                ? "Select Size"
+                : "Add to Cart"}
             </motion.button>
           </div>
         </div>

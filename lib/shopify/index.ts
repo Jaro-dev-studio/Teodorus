@@ -3,6 +3,7 @@
  */
 
 import { shopifyFetch, isShopifyConfigured } from "./client";
+import { getImagesByColor, isAdminApiConfigured } from "./admin-client";
 import * as queries from "./queries";
 import {
   filterHiddenProducts,
@@ -228,6 +229,14 @@ export async function getProductByHandle(handle: string): Promise<Product | null
     
     // Merge variants from secondary products
     product = mergeProductVariants(product, secondaryProducts);
+  }
+
+  // Fetch image-to-color associations from Admin API if configured
+  if (isAdminApiConfigured()) {
+    console.log("[Shopify] Fetching imagesByColor from Admin API for product:", product.id);
+    const imagesByColor = await getImagesByColor(product.id, product.variants);
+    product.imagesByColor = imagesByColor;
+    console.log("[Shopify] imagesByColor populated:", Object.keys(imagesByColor).length, "colors");
   }
 
   return product;
