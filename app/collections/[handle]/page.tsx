@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ProductCard } from "@/components/storefront";
 import { RevealText } from "@/components/storefront/animated-text";
-import { getCollectionProducts } from "@/lib/shopify";
 import type { Product, Collection } from "@/lib/shopify/types";
 
 const sortOptions = [
@@ -28,9 +27,13 @@ export default function CollectionPage() {
     const fetchCollection = async () => {
       setIsLoading(true);
       try {
-        const { collection: collectionData, products: productsData } = await getCollectionProducts(handle);
-        setCollection(collectionData);
-        setProducts(productsData);
+        const res = await fetch(`/api/collections/${handle}`);
+        if (!res.ok) {
+          throw new Error("Failed to fetch collection");
+        }
+        const data: { collection: Collection | null; products: Product[] } = await res.json();
+        setCollection(data.collection);
+        setProducts(data.products);
       } catch (error) {
         console.error("Error fetching collection:", error);
       } finally {

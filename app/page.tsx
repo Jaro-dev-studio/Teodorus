@@ -8,7 +8,6 @@ import {
   IfYouKnow,
   ProductGrid,
 } from "@/components/storefront";
-import { getProducts } from "@/lib/shopify";
 import type { Product } from "@/lib/shopify/types";
 
 export default function HomePage() {
@@ -18,7 +17,11 @@ export default function HomePage() {
   React.useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const products = await getProducts({ first: 4 });
+        const res = await fetch("/api/products?first=4");
+        if (!res.ok) {
+          throw new Error("Failed to fetch products");
+        }
+        const products: Product[] = await res.json();
         setFeaturedProducts(products);
       } catch (error) {
         console.error("Error fetching products:", error);

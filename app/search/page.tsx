@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ProductCard } from "@/components/storefront";
 import { RevealText } from "@/components/storefront/animated-text";
-import { searchProducts } from "@/lib/shopify";
 import type { Product } from "@/lib/shopify/types";
 
 function SearchContent() {
@@ -25,7 +24,11 @@ function SearchContent() {
 
       setIsLoading(true);
       try {
-        const results = await searchProducts(query, 50);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&first=50`);
+        if (!res.ok) {
+          throw new Error("Search failed");
+        }
+        const results: Product[] = await res.json();
         setProducts(results);
       } catch (error) {
         console.error("Search error:", error);

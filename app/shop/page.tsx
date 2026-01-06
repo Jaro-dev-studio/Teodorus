@@ -4,7 +4,6 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import { ProductCard } from "@/components/storefront";
 import { RevealText } from "@/components/storefront/animated-text";
-import { getProducts, getCollections, getCollectionProducts } from "@/lib/shopify";
 import type { Product, Collection } from "@/lib/shopify/types";
 import { cn } from "@/lib/utils";
 
@@ -28,10 +27,18 @@ export default function ShopPage() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [productsData, collectionsData] = await Promise.all([
-          getProducts(),
-          getCollections(),
+        const [productsRes, collectionsRes] = await Promise.all([
+          fetch("/api/products"),
+          fetch("/api/collections"),
         ]);
+        
+        if (!productsRes.ok || !collectionsRes.ok) {
+          throw new Error("Failed to fetch data");
+        }
+        
+        const productsData: Product[] = await productsRes.json();
+        const collectionsData: Omit<Collection, "products">[] = await collectionsRes.json();
+        
         setAllProducts(productsData);
         setDisplayProducts(productsData);
         setCollections(collectionsData);
@@ -55,8 +62,12 @@ export default function ShopPage() {
 
       setIsLoading(true);
       try {
-        const { products } = await getCollectionProducts(activeCategory);
-        setDisplayProducts(products);
+        const res = await fetch(`/api/collections/${activeCategory}`);
+        if (!res.ok) {
+          throw new Error("Failed to fetch collection products");
+        }
+        const data: { collection: Collection | null; products: Product[] } = await res.json();
+        setDisplayProducts(data.products);
       } catch (error) {
         console.error("Error fetching collection products:", error);
         setDisplayProducts([]);

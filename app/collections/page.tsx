@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { RevealText } from "@/components/storefront/animated-text";
-import { getCollections } from "@/lib/shopify";
 import type { Collection } from "@/lib/shopify/types";
 
 export default function CollectionsPage() {
@@ -14,7 +13,11 @@ export default function CollectionsPage() {
   React.useEffect(() => {
     const fetchCollections = async () => {
       try {
-        const data = await getCollections();
+        const res = await fetch("/api/collections");
+        if (!res.ok) {
+          throw new Error("Failed to fetch collections");
+        }
+        const data: Omit<Collection, "products">[] = await res.json();
         setCollections(data);
       } catch (error) {
         console.error("Error fetching collections:", error);
