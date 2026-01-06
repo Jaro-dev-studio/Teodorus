@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { motion, AnimatePresence, useDragControls } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface ImageLightboxProps {
@@ -23,7 +23,6 @@ export function ImageLightbox({
   const [scale, setScale] = React.useState(1);
   const [position, setPosition] = React.useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = React.useState(false);
-  const [isDoubleTapped, setIsDoubleTapped] = React.useState(false);
   
   const containerRef = React.useRef<HTMLDivElement>(null);
   const imageRef = React.useRef<HTMLDivElement>(null);
@@ -36,13 +35,34 @@ export function ImageLightbox({
   const lastPositionRef = React.useRef({ x: 0, y: 0 });
   const lastTimeRef = React.useRef(0);
 
+  // Get distance between two touches
+  const getTouchDistance = React.useCallback((touches: React.TouchList) => {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }, []);
+
+  // Navigation functions
+  const navigateNext = React.useCallback(() => {
+    if (scale > 1) return; // Don't navigate while zoomed
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  }, [scale, images.length]);
+
+  const navigatePrev = React.useCallback(() => {
+    if (scale > 1) return; // Don't navigate while zoomed
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  }, [scale, images.length]);
+
   // Reset state when opening
   React.useEffect(() => {
     if (isOpen) {
       setCurrentIndex(initialIndex);
       setScale(1);
       setPosition({ x: 0, y: 0 });
-      setIsDoubleTapped(false);
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -69,25 +89,11 @@ export function ImageLightbox({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, currentIndex]);
-
-  const navigateNext = () => {
-    if (scale > 1) return; // Don't navigate while zoomed
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
-    setCurrentIndex((prev) => (prev + 1) % images.length);
-  };
-
-  const navigatePrev = () => {
-    if (scale > 1) return; // Don't navigate while zoomed
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-  };
+  }, [isOpen, onClose, navigatePrev, navigateNext]);
 
   // Double tap to zoom
-  const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
-    const now = Date.now();
+  const handleDoubleTap = React.useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    const now = performance.now();
     const timeDiff = now - lastTapRef.current;
     
     if (timeDiff < 300 && timeDiff > 0) {
@@ -98,7 +104,6 @@ export function ImageLightbox({
         // Zoom out
         setScale(1);
         setPosition({ x: 0, y: 0 });
-        setIsDoubleTapped(false);
       } else {
         // Zoom in to where user tapped
         const rect = containerRef.current?.getBoundingClientRect();
@@ -111,16 +116,15 @@ export function ImageLightbox({
           
           setScale(2.5);
           setPosition({ x, y });
-          setIsDoubleTapped(true);
         }
       }
     }
     
     lastTapRef.current = now;
-  };
+  }, [scale]);
 
   // Pinch to zoom
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = React.useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       // Pinch start
       const distance = getTouchDistance(e.touches);
@@ -132,11 +136,11 @@ export function ImageLightbox({
       dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       positionStartRef.current = position;
       lastPositionRef.current = position;
-      lastTimeRef.current = Date.now();
+      lastTimeRef.current = performance.now();
     }
-  };
+  }, [scale, position, getTouchDistance]);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchMove = React.useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       // Pinch zoom
       e.preventDefault();
@@ -162,8 +166,8 @@ export function ImageLightbox({
       const boundedX = Math.min(Math.max(newX, -maxX), maxX);
       const boundedY = Math.min(Math.max(newY, -maxY), maxY);
       
-      // Track velocity
-      const now = Date.now();
+      // Track velocity using performance.now() for high-resolution timing
+      const now = performance.now();
       const dt = now - lastTimeRef.current;
       if (dt > 0) {
         velocityRef.current = {
@@ -188,12 +192,12 @@ export function ImageLightbox({
         onClose();
       }
     }
-  };
+  }, [isDragging, scale, onClose, getTouchDistance]);
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = React.useCallback(() => {
     setIsDragging(false);
     dragStartRef.current = { x: 0, y: 0 };
-  };
+  }, []);
 
   // Mouse wheel zoom (desktop)
   const handleWheel = (e: React.WheelEvent) => {
@@ -205,13 +209,6 @@ export function ImageLightbox({
     if (newScale <= 1) {
       setPosition({ x: 0, y: 0 });
     }
-  };
-
-  // Get distance between two touches
-  const getTouchDistance = (touches: React.TouchList) => {
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
   };
 
   // Swipe navigation for desktop
@@ -242,7 +239,7 @@ export function ImageLightbox({
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-[100] flex items-center justify-center"
+          className="fixed inset-0 z-100 flex items-center justify-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

@@ -107,6 +107,9 @@ export function mergeProductVariants(
   // Collect all sizes
   const allSizes = new Set<string>(primaryProduct.sizes);
   
+  // Merge imagesByColor
+  const mergedImagesByColor: Record<string, string[]> = { ...primaryProduct.imagesByColor };
+  
   for (const secondary of secondaryProducts) {
     // Add variants from secondary product
     for (const variant of secondary.variants) {
@@ -131,12 +134,25 @@ export function mergeProductVariants(
         allImages.push(image);
       }
     }
+    
+    // Merge imagesByColor from secondary product
+    for (const [color, images] of Object.entries(secondary.imagesByColor)) {
+      if (!mergedImagesByColor[color]) {
+        mergedImagesByColor[color] = [];
+      }
+      for (const img of images) {
+        if (!mergedImagesByColor[color].includes(img)) {
+          mergedImagesByColor[color].push(img);
+        }
+      }
+    }
   }
   
   return {
     ...primaryProduct,
     variants: allVariants,
     images: allImages,
+    imagesByColor: mergedImagesByColor,
     colors: Array.from(allColors),
     sizes: Array.from(allSizes),
   };
@@ -148,4 +164,5 @@ export function mergeProductVariants(
 export function invalidateMergedProductsCache() {
   mergedProductsCache = null;
 }
+
 

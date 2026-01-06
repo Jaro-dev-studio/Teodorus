@@ -27,6 +27,12 @@ export interface ShopifyProductVariant {
   image: ShopifyImage | null;
 }
 
+export interface ShopifyMediaImage {
+  id: string;
+  image: ShopifyImage | null;
+  previewImage: { url: string } | null;
+}
+
 export interface ShopifyProduct {
   id: string;
   handle: string;
@@ -41,6 +47,11 @@ export interface ShopifyProduct {
   images: {
     edges: Array<{
       node: ShopifyImage;
+    }>;
+  };
+  media?: {
+    edges: Array<{
+      node: ShopifyMediaImage;
     }>;
   };
   variants: {
@@ -176,6 +187,8 @@ export interface Product {
   currencyCode: string;
   image: string | null;
   images: string[];
+  /** Map of color name to array of image URLs for that color */
+  imagesByColor: Record<string, string[]>;
   tags: string[];
   productType: string;
   availableForSale: boolean;

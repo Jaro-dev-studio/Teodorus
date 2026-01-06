@@ -51,6 +51,9 @@ function normalizeProduct(shopifyProduct: ShopifyProduct): Product {
     ? parseFloat(shopifyProduct.compareAtPriceRange.minVariantPrice.amount)
     : null;
 
+  // Get all product images
+  const allImages = shopifyProduct.images?.edges?.map((e) => e.node.url) || [];
+
   return {
     id: shopifyProduct.id,
     handle: shopifyProduct.handle,
@@ -61,7 +64,8 @@ function normalizeProduct(shopifyProduct: ShopifyProduct): Product {
     compareAtPrice: compareAtPrice && compareAtPrice > minPrice ? compareAtPrice : null,
     currencyCode: shopifyProduct.priceRange?.minVariantPrice?.currencyCode || "USD",
     image: shopifyProduct.featuredImage?.url || null,
-    images: shopifyProduct.images?.edges?.map((e) => e.node.url) || [],
+    images: allImages,
+    imagesByColor: {}, // Not reliably determinable from Shopify data alone
     tags: shopifyProduct.tags || [],
     productType: shopifyProduct.productType || "",
     availableForSale: shopifyProduct.availableForSale ?? true,

@@ -72,24 +72,108 @@ export default function ProductPage() {
   const getFilteredImages = React.useCallback(() => {
     if (!product) return [];
     
+    // Get all unique product images
+    const allImages = product.images.length > 0 
+      ? [...new Set(product.images)] 
+      : [product.image].filter(Boolean) as string[];
+    
     // If no colors or no color selected, show all images
     if (product.colors.length === 0 || !selectedColor) {
-      return product.images.length > 0 ? product.images : [product.image].filter(Boolean) as string[];
+      return allImages;
     }
     
-    // Get variant images for the selected color
-    const colorVariants = product.variants.filter((v) => v.color === selectedColor);
-    const variantImages = colorVariants
-      .map((v) => v.image)
-      .filter((img): img is string => img !== null);
+    // Get the variant image for the selected color
+    const selectedColorVariant = product.variants.find((v) => v.color === selectedColor && v.image);
+    const selectedColorImage = selectedColorVariant?.image;
     
-    // If we have variant images, use them
-    if (variantImages.length > 0) {
-      return variantImages;
+    if (!selectedColorImage) {
+      return allImages;
     }
     
-    // Fallback to all images if no variant-specific images
-    return product.images.length > 0 ? product.images : [product.image].filter(Boolean) as string[];
+    // Find the position of the selected color's variant image in allImages
+    const variantImageIndex = allImages.findIndex((img) => img === selectedColorImage);
+    
+    if (variantImageIndex === -1) {
+      return allImages;
+    }
+    
+    // Get all variant images with their positions, sorted by index
+    const variantImagePositions = product.variants
+      .filter((v) => v.image)
+      .map((v) => ({
+        color: v.color,
+        image: v.image as string,
+        index: allImages.findIndex((img) => img === v.image)
+      }))
+      .filter((v) => v.index !== -1);
+    
+    // Remove duplicates (same color may have multiple variants with same image)
+    const uniqueVariantPositions = variantImagePositions
+      .filter((v, i, arr) => arr.findIndex((x) => x.color === v.color) === i)
+      .sort((a, b) => a.index - b.index);
+    
+    // Find batch boundaries (groups of consecutive variant images)
+    const batches: Array<{ startIndex: number; variantEndIndex: number; batchEndIndex: number; colors: string[]; colorIndices: number[] }> = [];
+    let currentBatch: typeof batches[0] | null = null;
+    
+    for (const vp of uniqueVariantPositions) {
+      if (!currentBatch) {
+        currentBatch = { startIndex: vp.index, variantEndIndex: vp.index, batchEndIndex: 0, colors: [vp.color!], colorIndices: [vp.index] };
+      } else if (vp.index <= currentBatch.variantEndIndex + 4) {
+        currentBatch.variantEndIndex = vp.index;
+        currentBatch.colors.push(vp.color!);
+        currentBatch.colorIndices.push(vp.index);
+      } else {
+        batches.push(currentBatch);
+        currentBatch = { startIndex: vp.index, variantEndIndex: vp.index, batchEndIndex: 0, colors: [vp.color!], colorIndices: [vp.index] };
+      }
+    }
+    if (currentBatch) batches.push(currentBatch);
+    
+    // Calculate batch end indices
+    for (let i = 0; i < batches.length; i++) {
+      const nextBatch = batches[i + 1];
+      batches[i].batchEndIndex = nextBatch ? nextBatch.startIndex : allImages.length;
+    }
+    
+    // Find which batch contains the selected color
+    const selectedBatch = batches.find((b) => b.colors.includes(selectedColor));
+    
+    const colorImages: string[] = [];
+    
+    if (selectedBatch && selectedBatch.colors.length > 1) {
+      // Multiple colors in batch
+      // Pattern: variant images first (grouped), then additional images grouped by color
+      const batchColorCount = selectedBatch.colors.length;
+      const colorPositionInBatch = selectedBatch.colors.indexOf(selectedColor);
+      
+      // First image: the variant image
+      colorImages.push(selectedColorImage);
+      
+      // Additional images start after all variant images in this batch
+      const additionalImagesStart = selectedBatch.variantEndIndex + 1;
+      const additionalImagesCount = selectedBatch.batchEndIndex - additionalImagesStart;
+      const additionalPerColor = Math.floor(additionalImagesCount / batchColorCount);
+      
+      // Additional images are grouped: color0's extras, then color1's extras, etc.
+      const colorAdditionalStart = additionalImagesStart + (colorPositionInBatch * additionalPerColor);
+      for (let i = 0; i < additionalPerColor; i++) {
+        const imageIndex = colorAdditionalStart + i;
+        if (imageIndex < selectedBatch.batchEndIndex && !colorImages.includes(allImages[imageIndex])) {
+          colorImages.push(allImages[imageIndex]);
+        }
+      }
+    } else {
+      // Single color in batch: take 4 consecutive images starting from variant image
+      for (let i = 0; i < 4; i++) {
+        const imageIndex = variantImageIndex + i;
+        if (imageIndex < allImages.length) {
+          colorImages.push(allImages[imageIndex]);
+        }
+      }
+    }
+    
+    return colorImages.length > 0 ? colorImages : [selectedColorImage];
   }, [product, selectedColor]);
 
   // Preload all product images when product loads

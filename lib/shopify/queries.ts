@@ -20,13 +20,31 @@ const PRODUCT_FRAGMENT = `
       width
       height
     }
-    images(first: 10) {
+    images(first: 50) {
       edges {
         node {
           url
           altText
           width
           height
+        }
+      }
+    }
+    media(first: 50) {
+      edges {
+        node {
+          ... on MediaImage {
+            id
+            image {
+              url
+              altText
+              width
+              height
+            }
+            previewImage {
+              url
+            }
+          }
         }
       }
     }
